@@ -12,3 +12,18 @@ app.add_middleware(
 )
 
 app.include_router(router.router, prefix="/api/v1")
+
+# Things to extract:
+# - Newsletter title
+# - Author name
+# - Number of words
+# - Number of sections
+# - Subject line (title)
+# - Subject line category (e.g: Subscription, Personal Growth)
+# - Number of emojis
+# - Number of emojis in subject line
+# - Number of words in Subject line
+# - Does it address reader with a name?
+# - CTAs (eg: Read more, Subscribe)
+# - Number of times product is mentioned
+# - Overall Comments (Summary and intent of the newsletter)
