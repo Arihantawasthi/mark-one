@@ -2,5 +2,6 @@ env/
 __pycache__/
 *.py[cod]
 *.pyc
-
+runserver.sh
+runcelery.sh
 .DS_Store
