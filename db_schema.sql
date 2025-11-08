@@ -1,0 +1,73 @@
+-- Need to connect client table with issue table so that specific clients can be associated with specific issues/newsletters
+CREATE TABLE IF NOT EXISTS client (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS search_run (
+    id SERIAL PRIMARY KEY, -- maybe later client_id will be added as FK
+    status VARCHAR(50) NOT NULL,
+    notion_doc_url TEXT,
+    niche TEXT,
+    search_terms JSONB,
+    total_newsletters INT,
+    total_issues INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS issue (
+    id SERIAL PRIMARY KEY,
+    newsletter VARCHAR(255) NOT NULL,
+    search_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    author VARCHAR(255),
+    canonical_url TEXT UNIQUE,
+    published_date TIMESTAMP WITH TIME ZONE,
+    content TEXT NOT NULL,
+    image_count INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS issue_analytics (
+    id SERIAL PRIMARY KEY,
+    issue_id INT REFERENCES issue(id) ON DELETE CASCADE,
+    title TEXT,
+    subtitle TEXT,
+    author VARCHAR(255),
+    word_count INT,
+    image_count INT,
+    section_count INT,
+    emoji_count INT,
+    title_emoji_count INT,
+    subtitle_emoji_count INT,
+    title_word_count INT,
+    subtitle_word_count INT,
+    addressed_user_by_name BOOLEAN,
+    product_mention_count INT,
+    ctas JSONB,
+    overall_summary TEXT,
+    overall_intent TEXT,
+    overall_tone TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS search_aggregate_analytics (
+    id SERIAL PRIMARY KEY,
+    search_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+
+    avg_word_count FLOAT,
+    avg_image_count FLOAT,
+    avg_section_count FLOAT,
+    avg_emoji_count FLOAT,
+    avg_title_emoji_count FLOAT,
+    avg_subtitle_emoji_count FLOAT,
+    avg_title_word_count FLOAT,
+    avg_subtitle_word_count FLOAT,
+    common_ctas JSONB,
+    overall_summary TEXT,
+    overall_tone TEXT,
+    overall_intent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+)
