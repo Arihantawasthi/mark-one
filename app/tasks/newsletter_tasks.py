@@ -8,7 +8,7 @@ def start_substack_analysis(self, search_result):
 
     try:
         logger.info(f"Starting analysis for newsletter: {search_result['title']}")
-        data = substack.get_substack_newsletter_archive(search_result))
+        data = substack.get_substack_newsletter_archive(search_result)
         logger.info(f"Completed analysis for newsletter: {search_result['title']}")
         return data
 
