@@ -3,10 +3,12 @@ from fastapi import HTTPException
 import requests
 from typing import Dict, List, Tuple
 
+from app.db import queries
+
 
 MAX_ISSUES = 5
 
-def get_substack_newsletter_archive(search_result: Dict) -> Dict:
+def get_substack_newsletter_archive(search_result: Dict, analysis_run_id: int) -> Dict:
     if "substack" not in search_result["link"]:
         return {}
 
@@ -23,12 +25,16 @@ def get_substack_newsletter_archive(search_result: Dict) -> Dict:
     for issue in issues:
         issue_details = {}
         issue_details["title"] = issue["title"]
+        issue_details["subtitle"] = issue["subtitle"]
         issue_details["link"] = issue["canonical_url"]
         issue_details["date"] = issue["post_date"]
         issue_details["author"] = issue["publishedBylines"][0]["name"]
         issue_details["content"], issue_details["num_of_images"] = scrape_issue_content(issue["canonical_url"])
 
         newsletter["issues"].append(issue_details)
+
+    # queries.insert_issues(analysis_run_id, newsletter["title"], newsletter["issues"])
+    # queries.update_analysis_run_issues_and_status(analysis_run_id, len(newsletter["issues"]), "completed")
 
     return newsletter
 

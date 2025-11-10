@@ -1,17 +1,10 @@
 from celery import Celery
-import os
-
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-REDIS_HOST = os.getenv('REDIS_HOST')
-REDIS_PORT = os.getenv('REDIS_PORT')
-REDIS_BROKER_DB = os.getenv('REDIS_BROKER_DB')
-
-REDIS_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_BROKER_DB}'
+import app.core.settings as settings
 
 celery_app = Celery(
     'mark-one',
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=['app.tasks.newsletter_tasks']
 )
 

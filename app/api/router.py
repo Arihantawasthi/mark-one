@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.tasks.newsletter_tasks import start_substack_analysis
+from app.db import queries
+from app.tasks.newsletter_tasks import process_newsletter_issues
 
 
 router = APIRouter(tags=["newsletter"])
@@ -31,7 +32,19 @@ def health_check():
 
 @router.get("/trigger-analysis")
 def trigger_analysis():
-    for result in search_results:
-        start_substack_analysis.delay(result)
+    total_newsletters = len(search_results)
+    niche = "Sports"
+    search_terms = [ "top 10 newsletters on sports", "best sports newsletters", "popular sports newsletters" ]
+    notion_doc_url = "https://www.notion.so/your-notion-doc-url"
+    analysis_run_id = queries.insert_search_run(
+        notion_doc_url,
+        niche,
+        search_terms,
+        total_newsletters,
+        0,
+        "initiated"
+    )
 
-    return { "status": "Scraping triggered" }
+    process_newsletter_issues.delay(analysis_run_id, search_results)
+
+    return { "status": "ok", "message": "Analysis triggered" }
