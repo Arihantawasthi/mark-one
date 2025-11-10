@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS client (
     email VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS search_run (
+CREATE TABLE IF NOT EXISTS analysis_run (
     id SERIAL PRIMARY KEY, -- maybe later client_id will be added as FK
     status VARCHAR(50) NOT NULL,
     notion_doc_url TEXT,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS search_run (
 CREATE TABLE IF NOT EXISTS issue (
     id SERIAL PRIMARY KEY,
     newsletter VARCHAR(255) NOT NULL,
-    search_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+    analysis_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     subtitle TEXT,
     author VARCHAR(255),
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS issue_analytics (
 
 CREATE TABLE IF NOT EXISTS search_aggregate_analytics (
     id SERIAL PRIMARY KEY,
-    search_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+    analysis_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
 
     avg_word_count FLOAT,
     avg_image_count FLOAT,
