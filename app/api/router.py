@@ -36,7 +36,7 @@ def trigger_analysis():
     niche = "Sports"
     search_terms = [ "top 10 newsletters on sports", "best sports newsletters", "popular sports newsletters" ]
     notion_doc_url = "https://www.notion.so/your-notion-doc-url"
-    analysis_run_id = queries.insert_search_run(
+    analysis_run_id = queries.insert_analysis_run(
         notion_doc_url,
         niche,
         search_terms,

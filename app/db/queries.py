@@ -1,11 +1,10 @@
 from app.db.connector import DatabaseConnector
-from psycopg2 import DatabaseError as PsycopgError
-from psycopg2.extras import DictCursor
+from psycopg import DatabaseError as PsycopgError
 
 class DatabaseError(Exception):
     pass
 
-def insert_search_run(notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
+def insert_analysis_run(notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
     sql = """
         INSERT INTO analysis_run (notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -15,7 +14,7 @@ def insert_search_run(notion_doc_url, niche, search_terms, total_newsletters, to
     db_conn = DatabaseConnector().connect()
     try:
         with db_conn:
-            with db_conn.cursor(cursor_factory=DictCursor) as cursor:
+            with db_conn.cursor() as cursor:
                 cursor.execute(sql, (notion_doc_url, niche, search_terms, total_newsletters, total_issues, status))
                 analysis_run_id = cursor.fetchone()["id"]
                 return analysis_run_id
@@ -39,7 +38,7 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
     db_conn = DatabaseConnector().connect()
     try:
         with db_conn:
-            with db_conn.cursor(cursor_factory=DictCursor) as cursor:
+            with db_conn.cursor() as cursor:
                 rows = [
                     (
                         newsletter_title,
@@ -82,7 +81,7 @@ def update_analysis_run_issues_and_status(analysis_run_id: int, total_issues: in
     db_conn = DatabaseConnector().connect()
     try:
         with db_conn:
-            with db_conn.cursor(cursor_factory=DictCursor) as cursor:
+            with db_conn.cursor() as cursor:
                 cursor.execute(sql, (total_issues, status, analysis_run_id))
 
     except PsycopgError as e:
