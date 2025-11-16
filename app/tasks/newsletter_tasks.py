@@ -1,6 +1,8 @@
-from celery import chord, group
+from celery import chord
 from app.celery.config import celery_app
 import logging
+
+from app.db import queries
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +27,14 @@ def process_newsletter_issues(self, analysis_run_id, search_results):
     for search_result in search_results:
         scraping_tasks.append(start_substack_analysis.s(search_result, analysis_run_id))
 
-    chord(scraping_tasks)(call_llm_analysis.s())
+    chord(scraping_tasks)(call_llm_analysis.s(analysis_run_id))
 
 
 @celery_app.task(name="call_llm_analysis", bind=True)
-def call_llm_analysis(self, newsletter_info):
-    pass
+def call_llm_analysis(self, newsletter_info, analysis_run_id):
+    issue_count = 0
+    for newsletter in newsletter_info:
+        for _ in newsletter.get("issues", []):
+            issue_count += 1
+
+    queries.update_analysis_run_issues_and_status(analysis_run_id, issue_count, "completed")

@@ -25,5 +25,11 @@ app.include_router(router.router, prefix="/api/v1")
 # - Number of words in Subject line
 # - Does it address reader with a name?
 # - CTAs (eg: Read more, Subscribe)
+# - Number of links
+# - Number of images
+# - Reading time
+# - Ads
 # - Number of times product is mentioned
+# - Overall intent
+# - Overall tone (e.g: Formal, Informal, Humorous)
 # - Overall Comments (Summary and intent of the newsletter)

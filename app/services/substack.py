@@ -33,8 +33,7 @@ def get_substack_newsletter_archive(search_result: Dict, analysis_run_id: int) -
 
         newsletter["issues"].append(issue_details)
 
-    # queries.insert_issues(analysis_run_id, newsletter["title"], newsletter["issues"])
-    # queries.update_analysis_run_issues_and_status(analysis_run_id, len(newsletter["issues"]), "completed")
+    queries.insert_issues(analysis_run_id, newsletter["title"], newsletter["issues"])
 
     return newsletter
 
