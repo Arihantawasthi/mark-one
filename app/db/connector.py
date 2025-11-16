@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 import app.core.settings as settings
 
 class DatabaseConnector:
@@ -7,12 +7,16 @@ class DatabaseConnector:
 
     def connect(self):
         if self.connection is None:
-            self.connection = psycopg2.connect(
-                dbname=settings.DATABASE_NAME,
-                user=settings.DATABASE_USER,
-                password=settings.DATABASE_PASSWORD,
-                host=settings.DATABASE_HOST,
-                port=settings.DATABASE_PORT
+            DSN = (
+                f"dbname={settings.DATABASE_NAME} "
+                f"user={settings.DATABASE_USER} "
+                f"password={settings.DATABASE_PASSWORD} "
+                f"host={settings.DATABASE_HOST} "
+                f"port={settings.DATABASE_PORT}"
+            )
+            self.connection = psycopg.connect(
+                DSN,
+                row_factory=psycopg.rows.dict_row
             )
         return self.connection
 
