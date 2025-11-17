@@ -48,3 +48,10 @@ def trigger_analysis():
     process_newsletter_issues.delay(analysis_run_id, search_results)
 
     return { "status": "ok", "message": "Analysis triggered" }
+
+@router.get("/test-llm")
+def test_llm():
+    from app.llm.agent import test_llm
+    llm_response = test_llm()
+    return { "llm_response": llm_response }
+
