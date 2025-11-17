@@ -32,7 +32,7 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
         INSERT INTO issue (
             newsletter, analysis_run_id, title, subtitle, author,
             canonical_url, published_date, content, image_count
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     db_conn = DatabaseConnector().connect()

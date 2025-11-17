@@ -8,11 +8,16 @@ from app.db import queries
 
 MAX_ISSUES = 5
 
-def get_substack_newsletter_archive(search_result: Dict, analysis_run_id: int) -> Dict:
+def process_and_save_newsletters(search_result: dict , analysis_run_id: int):
+    newsletter_data = scrape_substack_newsletter(search_result, analysis_run_id)
+    queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
+    return None
+
+def scrape_substack_newsletter(search_result: Dict, analysis_run_id: int) -> Dict:
     if "substack" not in search_result["link"]:
         return {}
 
-    archive_link = f"{search_result["link"]}/api/v1/archive?sort=new&search=&offset=0&limit={MAX_ISSUES}"
+    archive_link = f'{search_result["link"]}/api/v1/archive?sort=new&search=&offset=0&limit={MAX_ISSUES}'
     r = requests.get(archive_link, timeout=10)
     if r.status_code != 200:
         return {}
@@ -33,7 +38,6 @@ def get_substack_newsletter_archive(search_result: Dict, analysis_run_id: int) -
 
         newsletter["issues"].append(issue_details)
 
-    queries.insert_issues(analysis_run_id, newsletter["title"], newsletter["issues"])
 
     return newsletter
 
