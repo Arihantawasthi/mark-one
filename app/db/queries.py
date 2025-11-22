@@ -1,6 +1,8 @@
 from app.db.connector import DatabaseConnector
 from psycopg import DatabaseError as PsycopgError
 
+from app.llm.agent import AnalysisResponse
+
 class DatabaseError(Exception):
     pass
 
@@ -87,3 +89,89 @@ def update_analysis_run_issues_and_status(analysis_run_id: int, total_issues: in
     except PsycopgError as e:
         db_conn.rollback()
         raise DatabaseError(f"Error updating search run: {e}")
+
+
+def get_issues_by_analysis_run_id(analysis_run_id: int):
+    sql = """SELECT * FROM issue WHERE analysis_run_id = %s;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (analysis_run_id,))
+                issues = cursor.fetchall()
+                return issues
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching issues: {e}")
+
+def serialize_cta(obj):
+    return {
+        "type": obj.type,
+        "text": obj.text,
+        "url": obj.url,
+    }
+
+
+def insert_issue_analysis(issue_id: int, analysis: AnalysisResponse):
+    data = {
+        "issue_id": issue_id,
+        "title": analysis.title,
+        "subtitle": analysis.subtitle,
+        "author": analysis.author,
+        "word_count": analysis.word_count,
+        "image_count": analysis.image_count,
+        "section_count": analysis.section_count,
+        "emoji_count": analysis.emoji_count,
+        "title_emoji_count": analysis.title_emoji_count,
+        "subtitle_emoji_count": analysis.subtitle_emoji_count,
+        "title_word_count": analysis.title_word_count,
+        "subtitle_word_count": analysis.subtitle_word_count,
+        "addressed_user_by_name": analysis.addressed_user_by_name,
+        "reading_time_minutes": analysis.reading_time_minutes,
+        "product_mention_count": analysis.product_mention_count,
+        "ctas": [serialize_cta(cta) for cta in analysis.ctas],
+        "ads": [serialize_cta(cta) for cta in analysis.ads],
+        "overall_summary": analysis.overall_summary,
+        "overall_intent": analysis.overall_intent,
+        "overall_tone": analysis.overall_tone,
+    }
+    import json
+
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join(["%s"] * len(data))
+    data["ctas"] = json.dumps(data["ctas"])
+    data["ads"] = json.dumps(data["ads"])
+
+    values = tuple(data.values())
+
+    sql = f"""
+        INSERT INTO issue_analytics ({columns})
+        VALUES ({placeholders})
+    """
+
+    db_conn = DatabaseConnector().connect()
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, values)
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error inserting issue analysis: {e}")
+
+
+def get_issue_analysis():
+    sql = """SELECT * FROM issue_analytics;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql)
+                analyses = cursor.fetchall()
+                return analyses
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching issue analyses: {e}")

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS analysis_run (
     status VARCHAR(50) NOT NULL,
     notion_doc_url TEXT,
     niche TEXT,
-    search_terms JSONB,
+    search_terms TEXT[],
     total_newsletters INT,
     total_issues INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -19,13 +19,17 @@ CREATE TABLE IF NOT EXISTS analysis_run (
 CREATE TABLE IF NOT EXISTS issue (
     id SERIAL PRIMARY KEY,
     newsletter VARCHAR(255) NOT NULL,
-    analysis_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+    analysis_run_id INT REFERENCES analysis_run(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     subtitle TEXT,
     author VARCHAR(255),
     canonical_url TEXT UNIQUE,
     published_date TIMESTAMP WITH TIME ZONE,
     content TEXT NOT NULL,
+    likes_count INT DEFAULT 0,
+    comments_count INT DEFAULT 0,
+    links JSONB,
+    toon TEXT NOT NULL,
     image_count INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -48,15 +52,16 @@ CREATE TABLE IF NOT EXISTS issue_analytics (
     reading_time_minutes INT,
     product_mention_count INT,
     ctas JSONB,
+    ads JSONB,
     overall_summary TEXT,
     overall_intent TEXT,
     overall_tone TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS search_aggregate_analytics (
+CREATE TABLE IF NOT EXISTS issue_aggregate_analytics (
     id SERIAL PRIMARY KEY,
-    analysis_run_id INT REFERENCES search_run(id) ON DELETE CASCADE,
+    analysis_run_id INT REFERENCES analysis_run(id) ON DELETE CASCADE,
 
     avg_word_count FLOAT,
     avg_image_count FLOAT,
@@ -68,6 +73,7 @@ CREATE TABLE IF NOT EXISTS search_aggregate_analytics (
     avg_subtitle_word_count FLOAT,
     reading_time_minutes FLOAT,
     common_ctas JSONB,
+    common_ads JSONB,
     overall_summary TEXT,
     overall_tone TEXT,
     overall_intent TEXT,

@@ -6,9 +6,17 @@ issue_analysis_prompt_v1 = PromptTemplate.from_template(
     Follow these strict rules:
     1. DO NOT include any explanations outside of the JSON.
     2. Match EXACTLY the schema provided to you.
+    3. Ctas are any links that are mentioned in the newsletter except ads.
+        (e.g: "type": "social", "text": "Grant Wahl Twitter Dms", "url": "https://twitter.com/grantwahl/direct_messages")
+    4. Anything with "subscribe", "install", "get the app" are ads.
+        (e.g: "type": "subscription", "text": "Subscribe to our premium plan", "url": "https://newsletter.com/subscribe")
 
-    Following is the newsletter issue content:
-    {newsletter_issue}
+    Following is the newsletter issue:
+    Title: {title}
+    Subtitle: {subtitle}
+
+    Content:
+    {content}
     """
 )
 
@@ -19,6 +27,7 @@ issue_analysis_prompt_v2 = PromptTemplate.from_template(
     Title: {title}
     Subtitle: {subtitle}
 
+    Content:
     {content}
     """
 )

@@ -1,19 +1,22 @@
+from typing import Union
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString, PageElement, Tag
 from fastapi import HTTPException
 import requests
-from typing import Dict, List, Tuple
 
 from app.db import queries
+import logging
+logger = logging.getLogger(__name__)
 
 
 MAX_ISSUES = 5
 
-def process_and_save_newsletters(search_result: dict , analysis_run_id: int):
-    newsletter_data = scrape_substack_newsletter(search_result, analysis_run_id)
-    queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
-    return None
+def process_and_save_newsletters(analysis_run_id: int, search_result: dict) -> dict:
+    newsletter_data = scrape_substack_newsletter(search_result)
+    # queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
+    return newsletter_data
 
-def scrape_substack_newsletter(search_result: Dict, analysis_run_id: int) -> Dict:
+def scrape_substack_newsletter(search_result: dict) -> dict:
     if "substack" not in search_result["link"]:
         return {}
 
@@ -29,19 +32,35 @@ def scrape_substack_newsletter(search_result: Dict, analysis_run_id: int) -> Dic
 
     for issue in issues:
         issue_details = {}
+        scrapped_data = scrape_issue_content(issue["canonical_url"])
+        logger.error(f'Starting to scrape newsletter: {issue}')
+
         issue_details["title"] = issue["title"]
         issue_details["subtitle"] = issue["subtitle"]
         issue_details["link"] = issue["canonical_url"]
         issue_details["date"] = issue["post_date"]
-        issue_details["author"] = issue["publishedBylines"][0]["name"]
-        issue_details["content"], issue_details["num_of_images"] = scrape_issue_content(issue["canonical_url"])
+        issue_details["author"] = extract_author(issue)
+
+        issue_details["content"] = scrapped_data["content"]
+        issue_details["like_count"] = scrapped_data["like_count"]
+        issue_details["comment_count"] = scrapped_data["comment_count"]
+        issue_details["image_count"] = scrapped_data["image_count"]
+        issue_details["links"] = scrapped_data["links"]
 
         newsletter["issues"].append(issue_details)
 
-
     return newsletter
 
-def scrape_issue_content(issue_url: str) -> Tuple[str, int]:
+def extract_author(issue) -> str:
+    bylines = issue.get("publishedBylines")
+
+    if not isinstance(bylines, list) or len(bylines) == 0:
+        return "Unknown"
+
+    return bylines[0].get("name", "Unknown")
+
+
+def scrape_issue_content(issue_url: str) -> dict:
     r = requests.get(issue_url, timeout=10)
     if r.status_code != 200:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -54,15 +73,42 @@ def scrape_issue_content(issue_url: str) -> Tuple[str, int]:
     for widget in article.select("div.subscription-widget-wrap"):
         widget.decompose()
 
+    issue = {}
+
+    like_button_elem = article.find("div", class_="like-button-container").find("button")
+    issue["like_count"] = get_engagement_count(like_button_elem)
+
+    comment_button_elem = article.find("button", class_="post-ufi-comment-button")
+    issue["comment_count"] = get_engagement_count(comment_button_elem)
+
     issue_content = article.find("div", class_="available-content")
-    paras = [p.text.strip() for p in issue_content.find_all("p")]
-    num_of_images = len(issue_content.find_all("img"))
+    images = issue_content.find_all("img") + issue_content.find_all("figure")
+    issue["image_count"] = len(images)
 
-    sanitized_paras = sanitize_content(paras)
+    links = {}
+    for link in issue_content.find_all("a"):
+        links["text"] = link.get_text().strip()
+        links["url"] = link.get("href", "").strip()
 
-    return sanitized_paras, num_of_images
+    paras = [ p.get_text("\n\n").strip() for p in issue_content.find_all("p") ]
+    issue["content"] = sanitize_content(paras)
+    issue["links"] = links
 
-def sanitize_content(content: List[str]) -> str:
-    sanitized_paras = [ paragraph for paragraph in content if paragraph ]
+    return issue
+
+def get_engagement_count(button) -> int:
+    if not button:
+        return 0
+    count_div = button.find("div")
+    if not count_div:
+        return 0
+    try:
+        return int(count_div.get_text().strip())
+    except ValueError:
+        return 0
+
+
+def sanitize_content(paragraphs: list[str]) -> str:
+    sanitized_paras = [ para for para in paragraphs if para ]
     content_str = "\n\n".join(sanitized_paras)
     return content_str

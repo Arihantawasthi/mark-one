@@ -5,7 +5,7 @@ celery_app = Celery(
     'mark-one',
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=['app.tasks.newsletter_tasks']
+    include=['app.tasks.newsletter_tasks', 'app.tasks.pipeline']
 )
 
 celery_app.conf.update(

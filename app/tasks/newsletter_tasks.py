@@ -1,4 +1,5 @@
-from celery import chord
+from celery import chord, group
+from app.services import substack
 from app.celery.config import celery_app
 import logging
 
@@ -6,30 +7,25 @@ from app.db import queries
 
 logger = logging.getLogger(__name__)
 
-@celery_app.task(name="start_substack_analysis_task", bind=True)
-def start_substack_analysis(self, search_result, analysis_run_id):
-    from app.services import substack
-
-    try:
-        logger.info(f"Starting analysis for newsletter: {search_result['title']}")
-        substack.process_and_save_newsletters(search_result, analysis_run_id)
-        logger.info(f"Completed analysis for newsletter: {search_result['title']}")
-
-    except Exception as e:
-        logger.error(f"Error analyzing newsletter {search_result['title']}: {e}")
-        raise self.retry(exc=e, countdown=10, max_retries=3)
+@celery_app.task(name="process_and_save_newsletters_task", bind=True)
+def process_and_save_newsletters_task(self, analysis_run_id, search_result):
+    logger.info(f"Starting analysis for newsletter: {search_result['title']}")
+    logger.error(substack.process_and_save_newsletters(analysis_run_id, search_result))
+    logger.info(f"Completed analysis for newsletter: {search_result['title']}")
 
 
-@celery_app.task(name="process_newsletter_issues", bind=True)
-def process_newsletter_issues(self, analysis_run_id, search_results):
-    scraping_tasks = []
-    for search_result in search_results:
-        scraping_tasks.append(start_substack_analysis.s(search_result, analysis_run_id))
+@celery_app.task(name="analyze_issue_task", bind=True)
+def analyze_issue_task(self, issue):
+    from app.llm import agent
+    # analysis = agent.analyze_newsletter_issue(issue)
+    import time
+    time.sleep(10)
+    logger.error("Analyzing issue!!!!!")
+    # queries.insert_issue_analysis(issue["id"], analysis.additional_kwargs["parsed"])
+    #logger.error(f"{issue}")
 
-    chord(scraping_tasks)(call_llm_analysis.s(analysis_run_id))
 
-
-@celery_app.task(name="call_llm_analysis", bind=True)
-def call_llm_analysis(self, analysis_run_id):
-
-    queries.update_analysis_run_issues_and_status(analysis_run_id, issue_count, "completed")
+@celery_app.task(name="test_task", bind=True)
+def test_task(self):
+    for i in range(5):
+        logger.info(f"Test task iteration {i}")
