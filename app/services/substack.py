@@ -1,20 +1,30 @@
 from typing import Union
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString, PageElement, Tag
 from fastapi import HTTPException
+from toon_format import encode
 import requests
 
 from app.db import queries
 import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 MAX_ISSUES = 5
 
+def convert_to_toon(scrapped_data: dict) -> Union[str, None]:
+    data_to_be_converted = {}
+    data_to_be_converted["content"] = scrapped_data.get("content", [])
+    data_to_be_converted["like_count"] = scrapped_data.get("like_count", 0)
+    data_to_be_converted["comment_count"] = scrapped_data.get("comment_count", 0)
+    data_to_be_converted["image_count"] = scrapped_data.get("image_count", 0)
+    data_to_be_converted["links"] = scrapped_data.get("links", {})
+
+    return encode(data_to_be_converted)
+
+
 def process_and_save_newsletters(analysis_run_id: int, search_result: dict) -> dict:
     newsletter_data = scrape_substack_newsletter(search_result)
-    # queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
-    return newsletter_data
+    queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
 
 def scrape_substack_newsletter(search_result: dict) -> dict:
     if "substack" not in search_result["link"]:
@@ -33,27 +43,26 @@ def scrape_substack_newsletter(search_result: dict) -> dict:
     for issue in issues:
         issue_details = {}
         scrapped_data = scrape_issue_content(issue["canonical_url"])
-        logger.error(f'Starting to scrape newsletter: {issue}')
 
         issue_details["title"] = issue["title"]
         issue_details["subtitle"] = issue["subtitle"]
         issue_details["link"] = issue["canonical_url"]
         issue_details["date"] = issue["post_date"]
         issue_details["author"] = extract_author(issue)
-
         issue_details["content"] = scrapped_data["content"]
         issue_details["like_count"] = scrapped_data["like_count"]
         issue_details["comment_count"] = scrapped_data["comment_count"]
         issue_details["image_count"] = scrapped_data["image_count"]
         issue_details["links"] = scrapped_data["links"]
+        issue_details["toon"] = convert_to_toon(scrapped_data)
 
         newsletter["issues"].append(issue_details)
 
     return newsletter
 
+
 def extract_author(issue) -> str:
     bylines = issue.get("publishedBylines")
-
     if not isinstance(bylines, list) or len(bylines) == 0:
         return "Unknown"
 
@@ -85,13 +94,15 @@ def scrape_issue_content(issue_url: str) -> dict:
     images = issue_content.find_all("img") + issue_content.find_all("figure")
     issue["image_count"] = len(images)
 
-    links = {}
+    links = []
     for link in issue_content.find_all("a"):
-        links["text"] = link.get_text().strip()
-        links["url"] = link.get("href", "").strip()
+        links.append({
+            "text": link.get_text().strip(),
+            "url": link.get("href", "").strip()
+        })
 
-    paras = [ p.get_text("\n\n").strip() for p in issue_content.find_all("p") ]
-    issue["content"] = sanitize_content(paras)
+    paras = [ p.get_text(" ").strip() for p in issue_content.find_all("p") ]
+    issue["content"] = paras
     issue["links"] = links
 
     return issue
@@ -106,9 +117,3 @@ def get_engagement_count(button) -> int:
         return int(count_div.get_text().strip())
     except ValueError:
         return 0
-
-
-def sanitize_content(paragraphs: list[str]) -> str:
-    sanitized_paras = [ para for para in paragraphs if para ]
-    content_str = "\n\n".join(sanitized_paras)
-    return content_str

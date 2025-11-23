@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.db import queries
-from app.llm.agent import AnalysisResponse, CTAObject
+from app.llm.agent import AnalysisResponse, LinkObject
 from app.tasks.pipeline import scraping_stage
 
 
@@ -49,13 +49,6 @@ search_results = [
         "link": "https://fallstownfuse.substack.com/",
     }
 ]
-#search_results = [
-#    {
-#        "position": 3,
-#        "title": "About - MacGuffin or Meaning: Entertainment Newsletter",
-#        "link": "https://alisechaffins.substack.com/",
-#    },
-#]
 
 @router.get("/")
 def health_check():
@@ -88,6 +81,8 @@ def test_analysis_insert():
         author="",
         word_count=1035,
         image_count=1,
+        like_count=5,
+        comment_count=12,
         section_count=10,
         emoji_count=0,
         title_emoji_count=0,
@@ -98,17 +93,17 @@ def test_analysis_insert():
         reading_time_minutes=4,
         product_mention_count=0,
         ctas=[
-            CTAObject(
+            LinkObject(
                 type="reference",
                 text="normal distribution",
                 url="https://www.investopedia.com/terms/n/normaldistribution.asp"
             ),
-            CTAObject(
+            LinkObject(
                 type="reference",
                 text="Investopedia",
                 url="https://www.investopedia.com/terms/t/tailrisk.asp"
             ),
-            CTAObject(
+            LinkObject(
                 type="reference",
                 text="BBC story on the underground caves inhabited during WW2",
                 url="https://www.bbc.com/news/magazine-34139311"
@@ -127,7 +122,7 @@ def test_analysis_insert():
     queries.insert_issue_analysis(1, analysis)
     return { "status": "ok", "message": "Test analysis inserted" }
 
-@router.get("/export-analysis-csv")
-def export_analysis_csv():
+@router.get("/get-analysis")
+def get_analysis():
     analysis = queries.get_issue_analysis()
     return { "status": "ok", "message": "Analysis exported to analysis_export.csv", "data": analysis }

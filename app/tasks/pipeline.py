@@ -1,6 +1,7 @@
 from celery import chord, group
 
 from app.celery.config import celery_app
+from app.db import queries
 from .newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, test_task
 import logging
 
@@ -20,11 +21,12 @@ def scraping_stage(self, analysis_run_id, search_results):
 @celery_app.task(name="issue_analysis_stage", bind=True)
 def issue_analysis_stage(self, analysis_run_id):
     logger.error("STARTED ISSUE ANALYSIS STAGE")
-    # issues = queries.get_issues_by_analysis_run_id(analysis_run_id)
+    issues = queries.get_issues_by_analysis_run_id(analysis_run_id)
     analysis_group = group(
         analyze_issue_task.si(issue)
-        for issue in range(10)
+        for issue in issues
     )
 
+    queries.update_analysis_run_issues_and_status(analysis_run_id, len(issues), "completed")
+
     return chord(analysis_group, test_task.si())()
-    # queries.update_analysis_run_issues_and_status(analysis_run_id, issue_count, "completed")

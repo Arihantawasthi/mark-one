@@ -1,5 +1,6 @@
 from app.db.connector import DatabaseConnector
 from psycopg import DatabaseError as PsycopgError
+import json
 
 from app.llm.agent import AnalysisResponse
 
@@ -32,9 +33,9 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
 
     sql = """
         INSERT INTO issue (
-            newsletter, analysis_run_id, title, subtitle, author,
-            canonical_url, published_date, content, image_count
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            newsletter, analysis_run_id, title, subtitle, author, canonical_url, published_date,
+            content, like_count, comment_count, links, toon, image_count
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 
     db_conn = DatabaseConnector().connect()
@@ -51,7 +52,11 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
                         issue["link"],
                         issue["date"],
                         issue["content"],
-                        issue["num_of_images"]
+                        issue["like_count"],
+                        issue["comment_count"],
+                        json.dumps(issue["links"]),
+                        issue["toon"],
+                        issue["image_count"]
                     )
                     for issue in issues
                 ]
@@ -106,7 +111,7 @@ def get_issues_by_analysis_run_id(analysis_run_id: int):
         db_conn.rollback()
         raise DatabaseError(f"Error fetching issues: {e}")
 
-def serialize_cta(obj):
+def serialize_links(obj):
     return {
         "type": obj.type,
         "text": obj.text,
@@ -122,6 +127,8 @@ def insert_issue_analysis(issue_id: int, analysis: AnalysisResponse):
         "author": analysis.author,
         "word_count": analysis.word_count,
         "image_count": analysis.image_count,
+        "like_count": analysis.like_count,
+        "comment_count": analysis.comment_count,
         "section_count": analysis.section_count,
         "emoji_count": analysis.emoji_count,
         "title_emoji_count": analysis.title_emoji_count,
@@ -131,13 +138,13 @@ def insert_issue_analysis(issue_id: int, analysis: AnalysisResponse):
         "addressed_user_by_name": analysis.addressed_user_by_name,
         "reading_time_minutes": analysis.reading_time_minutes,
         "product_mention_count": analysis.product_mention_count,
-        "ctas": [serialize_cta(cta) for cta in analysis.ctas],
-        "ads": [serialize_cta(cta) for cta in analysis.ads],
+        "url": analysis.url,
+        "ctas": [serialize_links(link) for link in analysis.ctas],
+        "ads": [serialize_links(link) for link in analysis.ads],
         "overall_summary": analysis.overall_summary,
         "overall_intent": analysis.overall_intent,
         "overall_tone": analysis.overall_tone,
     }
-    import json
 
     columns = ", ".join(data.keys())
     placeholders = ", ".join(["%s"] * len(data))
