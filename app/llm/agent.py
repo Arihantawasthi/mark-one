@@ -15,9 +15,6 @@ def analyze_newsletter_issue(issue: dict) -> AnalysisResponse:
     )
     model_response = model.invoke(prompt, response_format=AnalysisResponse)
     response_object = model_response.additional_kwargs["parsed"]
-    response_object.image_count = issue.get("image_count", 0)
-    response_object.like_count = issue.get("like_count", 0)
-    response_object.comment_count = issue.get("comment_count", 0)
     return response_object
 
 

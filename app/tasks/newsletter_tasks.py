@@ -55,12 +55,11 @@ def construct_agg_analysis_obj(model_response: AggregateAnalysisResponse, engage
     )
 
 
-# @celery_app.task(name="test_task", bind=True)
-#def aggregate_issue_analysis(self, issue_ids, analysis_run_id):
-def aggregate_issue_analysis(analysis_run_id):
+@celery_app.task(name="aggregate_issue_analysis", bind=True)
+def aggregate_issue_analysis(self, issue_ids, analysis_run_id):
     from app.llm import agent
 
-    issue_analyses = queries.get_issue_analysis()
+    issue_analyses = queries.get_issue_analyses_by_issue_ids(issue_ids)
     engagement_graph = generate_engagement_graph(issue_analyses)
 
     metrics_to_analyze = []
@@ -75,10 +74,6 @@ def aggregate_issue_analysis(analysis_run_id):
     aggregate_analysis = agent.aggregate_issue_analysis(individual_analyses)
     # logger.error(f"AGGREGATE ANALYSIS COMPLETED: {individual_analyses}")
     aggregate_analysis_obj = construct_agg_analysis_obj(aggregate_analysis, engagement_graph, issue_analyses)
-    print(f"INDIVIDUAL ANALYSES: {individual_analyses}")
-    print(f"AGGREGATE ANALYSIS: {aggregate_analysis.overall_summary}")
-    print(f"AGGREGATE ANALYSIS: {aggregate_analysis.overall_intent}")
-    print(f"AGGREGATE ANALYSIS: {aggregate_analysis.overall_tone}")
 
     result = queries.insert_aggregate_issue_analysis(analysis_run_id, aggregate_analysis_obj)
     return result
@@ -87,7 +82,6 @@ def aggregate_issue_analysis(analysis_run_id):
 def generate_engagement_graph(issue_analyses):
     engagement_data = []
     for analysis in issue_analyses:
-        print(f"ANALYSIS DATA: {analysis}")
         engagement_data.append({
             "issue_id": analysis["issue_id"],
             "word_count": analysis["word_count"],

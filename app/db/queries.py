@@ -183,6 +183,25 @@ def get_issue_analysis():
         db_conn.rollback()
         raise DatabaseError(f"Error fetching issue analyses: {e}")
 
+
+def get_issue_analyses_by_issue_ids(issue_ids: list[int]):
+    if not issue_ids:
+        return []
+
+    sql = f"""SELECT * FROM issue_analytics WHERE issue_id = ANY(%s);"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (issue_ids, ))
+                return cursor.fetchall()
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching issue analyses: {e}")
+
+
 def insert_aggregate_issue_analysis(analysis_run_id: int, aggregate_analysis):
     data = {
         "analysis_run_id": analysis_run_id,
