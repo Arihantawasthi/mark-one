@@ -182,3 +182,40 @@ def get_issue_analysis():
     except PsycopgError as e:
         db_conn.rollback()
         raise DatabaseError(f"Error fetching issue analyses: {e}")
+
+def insert_aggregate_issue_analysis(analysis_run_id: int, aggregate_analysis):
+    data = {
+        "analysis_run_id": analysis_run_id,
+        "overall_summary": aggregate_analysis.overall_summary,
+        "overall_intent": aggregate_analysis.overall_intent,
+        "overall_tone": aggregate_analysis.overall_tone,
+        "avg_word_count": aggregate_analysis.avg_word_count,
+        "avg_image_count": aggregate_analysis.avg_image_count,
+        "avg_section_count": aggregate_analysis.avg_section_count,
+        "avg_emoji_count": aggregate_analysis.avg_emoji_count,
+        "avg_title_emoji_count": aggregate_analysis.avg_title_emoji_count,
+        "avg_subtitle_emoji_count": aggregate_analysis.avg_subtitle_emoji_count,
+        "avg_title_word_count": aggregate_analysis.avg_title_word_count,
+        "avg_subtitle_word_count": aggregate_analysis.avg_subtitle_word_count,
+        "reading_time_minutes": aggregate_analysis.reading_time_minutes,
+        "engagement_graph": json.dumps(aggregate_analysis.engagement_graph),
+    }
+
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join(["%s"] * len(data))
+    values = tuple(data.values())
+
+    sql = f"""
+        INSERT INTO issue_aggregate_analytics ({columns})
+        VALUES ({placeholders}) RETURNING *;
+    """
+
+    db_conn = DatabaseConnector().connect()
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, values)
+                return cursor.fetchone()
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error inserting aggregate issue analysis: {e}")

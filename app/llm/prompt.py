@@ -12,11 +12,9 @@ issue_analysis_prompt_v1 = PromptTemplate.from_template(
     - mentions a sponsor
     - is tonally promotional
     Classify it as an ad.
-
     When unsure, classify as AD.
     Never leave borderline promotional content unlabeled if there is a link and a text
     Be conservative: it is better to over-detect ads than under-detect.
-
 
     Follow these strict rules:
     1. DO NOT include any explanations outside of the JSON.
@@ -48,3 +46,15 @@ issue_analysis_prompt_v2 = PromptTemplate.from_template(
     """
 )
 
+
+aggregate_issue_analysis_prompt = PromptTemplate.from_template(
+    """You are an expert newsletter analyst. Your task is to perform an aggregate issue analyses and return the result in the provided format.
+
+    Follow these strict rules:
+    1. DO NOT include any explanations outside of the JSON.
+    2. Match EXACTLY the schema provided to you.
+
+    Given the following individual analyses, provide an aggregated summary:
+    {individual_analyses}
+    """
+)

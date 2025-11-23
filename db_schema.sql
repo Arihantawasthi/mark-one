@@ -75,10 +75,9 @@ CREATE TABLE IF NOT EXISTS issue_aggregate_analytics (
     avg_title_word_count FLOAT,
     avg_subtitle_word_count FLOAT,
     reading_time_minutes FLOAT,
-    common_ctas JSONB,
-    common_ads JSONB,
     overall_summary TEXT,
     overall_tone TEXT,
     overall_intent TEXT,
+    engagement_graph JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 )

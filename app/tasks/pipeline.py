@@ -2,7 +2,7 @@ from celery import chord, group
 
 from app.celery.config import celery_app
 from app.db import queries
-from .newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, test_task
+from .newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, aggregate_issue_analysis, test_task
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,5 +28,6 @@ def issue_analysis_stage(self, analysis_run_id):
     )
 
     queries.update_analysis_run_issues_and_status(analysis_run_id, len(issues), "completed")
-
+    issue_ids = [ issue["id"] for issue in issues ]
+    # return chord(analysis_group, aggregate_issue_analysis.si(issue_ids, analysis_run_id))()
     return chord(analysis_group, test_task.si())()

@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from app.db import queries
-from app.llm.agent import AnalysisResponse, LinkObject
+from app.llm.models import AnalysisResponse
 from app.tasks.pipeline import scraping_stage
+from app.tasks.newsletter_tasks import aggregate_issue_analysis
 
 
 router = APIRouter(tags=["newsletter"])
@@ -126,3 +127,8 @@ def test_analysis_insert():
 def get_analysis():
     analysis = queries.get_issue_analysis()
     return { "status": "ok", "message": "Analysis exported to analysis_export.csv", "data": analysis }
+
+@router.get("/test-agg-analysis")
+def test_agg_analysis():
+    result = aggregate_issue_analysis(18)
+    return { "status": "ok", "data": result }
