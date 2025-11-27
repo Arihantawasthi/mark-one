@@ -2,7 +2,7 @@ from celery import chord, group
 
 from app.celery.config import celery_app
 from app.db import queries
-from .newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, aggregate_issue_analysis, test_task
+from app.tasks.newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, aggregate_issue_analysis, test_task
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,119 +1,113 @@
-from typing import Union
+import logging
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
-from toon_format import encode
 import requests
 
-from app.db import queries
-import logging
+from app.core import settings
 
 logger = logging.getLogger(__name__)
 
-MAX_ISSUES = 5
 
-def convert_to_toon(scrapped_data: dict) -> Union[str, None]:
-    data_to_be_converted = {}
-    data_to_be_converted["content"] = scrapped_data.get("content", [])
-    data_to_be_converted["like_count"] = scrapped_data.get("like_count", 0)
-    data_to_be_converted["comment_count"] = scrapped_data.get("comment_count", 0)
-    data_to_be_converted["image_count"] = scrapped_data.get("image_count", 0)
-    data_to_be_converted["links"] = scrapped_data.get("links", {})
-
-    return encode(data_to_be_converted)
+class SubstackScraper:
+    def __init__(self, search_result):
+        self.search_result = search_result
+        self.acrhive_link = f"{search_result['link']}{settings.SUBSTACK_ARCHIVE_SUFFIX}{settings.MAX_ISSUES}"
 
 
-def process_and_save_newsletters(analysis_run_id: int, search_result: dict) -> dict:
-    newsletter_data = scrape_substack_newsletter(search_result)
-    queries.insert_issues(analysis_run_id, newsletter_data["title"], newsletter_data["issues"])
+    def scrape_newsletter(self):
+        try:
+            r = requests.get(self.acrhive_link, timeout=10)
+            r.raise_for_status()
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch Substack archive: {e}")
+            return {}
 
-def scrape_substack_newsletter(search_result: dict) -> dict:
-    if "substack" not in search_result["link"]:
-        return {}
+        issues_data = r.json()
+        scraped_issues = []
 
-    archive_link = f'{search_result["link"]}/api/v1/archive?sort=new&search=&offset=0&limit={MAX_ISSUES}'
-    r = requests.get(archive_link, timeout=10)
-    if r.status_code != 200:
-        return {}
+        for issue in issues_data:
+            try:
+                scraped_issue_details = {}
+                content_data = self._scrape_issue_content(issue["canonical_url"])
 
-    issues = r.json()
-    newsletter = {}
-    newsletter["title"] = search_result["title"]
-    newsletter["issues"] = []
+                scraped_issue_details["title"] = issue["title"]
+                scraped_issue_details["subtitle"] = issue["subtitle"]
+                scraped_issue_details["link"] = issue["canonical_url"]
+                scraped_issue_details["date"] = issue["post_date"]
+                scraped_issue_details["author"] = self._extract_author(issue)
+                scraped_issue_details["content"] = content_data["content"]
+                scraped_issue_details["like_count"] = content_data["like_count"]
+                scraped_issue_details["comment_count"] = content_data["comment_count"]
+                scraped_issue_details["image_count"] = content_data["image_count"]
+                scraped_issue_details["links"] = content_data["links"]
 
-    for issue in issues:
-        issue_details = {}
-        scrapped_data = scrape_issue_content(issue["canonical_url"])
+                scraped_issues.append(scraped_issue_details)
 
-        issue_details["title"] = issue["title"]
-        issue_details["subtitle"] = issue["subtitle"]
-        issue_details["link"] = issue["canonical_url"]
-        issue_details["date"] = issue["post_date"]
-        issue_details["author"] = extract_author(issue)
-        issue_details["content"] = scrapped_data["content"]
-        issue_details["like_count"] = scrapped_data["like_count"]
-        issue_details["comment_count"] = scrapped_data["comment_count"]
-        issue_details["image_count"] = scrapped_data["image_count"]
-        issue_details["links"] = scrapped_data["links"]
-        issue_details["toon"] = convert_to_toon(scrapped_data)
+            except HTTPException as e:
+                logger.error(f"Failed to scrape issue content: {e.detail}")
+                continue
 
-        newsletter["issues"].append(issue_details)
+        return {
+            "title": self.search_result["title"],
+            "issues": scraped_issues
+        }
 
-    return newsletter
+    def _scrape_issue_content(self, issue_url: str) -> dict:
+        r = requests.get(issue_url, timeout=10)
+        if r.status_code != 200:
+            logger.error(f"Failed to fetch issue URL: {issue_url}")
+            raise Exception("Issue not found")
 
+        soup = BeautifulSoup(r.text, "html.parser")
+        article = soup.find("article")
 
-def extract_author(issue) -> str:
-    bylines = issue.get("publishedBylines")
-    if not isinstance(bylines, list) or len(bylines) == 0:
-        return "Unknown"
+        if not article:
+            logger.error(f"No article tag found in issue URL: {issue_url}")
+            raise Exception("Content not found")
 
-    return bylines[0].get("name", "Unknown")
+        for widget in article.select("div.subscription-widget-wrap"):
+            widget.decompose()
 
+        like_elem = article.find("div", class_="like-button-contaier").find("button")
+        like_count = self._get_engagement_count(like_elem)
 
-def scrape_issue_content(issue_url: str) -> dict:
-    r = requests.get(issue_url, timeout=10)
-    if r.status_code != 200:
-        raise HTTPException(status_code=404, detail="Issue not found")
+        comment_elem = article.find("button", class_="post-ufi-comment-button")
+        comment_count = self._get_engagement_count(comment_elem)
 
-    soup = BeautifulSoup(r.text, "html.parser")
-    article = soup.find("article")
-    if not article:
-        raise HTTPException(status_code=404, detail="Content not found")
+        issue_content = article.find("div", class_="available-content")
+        images = issue_content.find_all("img") + issue_content.find_all("figure")
+        image_count = len(images)
 
-    for widget in article.select("div.subscription-widget-wrap"):
-        widget.decompose()
+        links = []
+        for link in issue_content.find_all("a"):
+            links.append({
+                "text": link.get_text().strip(),
+                "url": link.get("href", "").strip()
+            })
+        paras = [ p.get_text(" ").strip() for p in issue_content.find_all("p") ]
 
-    issue = {}
+        return {
+            "content": paras,
+            "like_count": like_count,
+            "comment_count": comment_count,
+            "image_count": image_count,
+            "links": links
+        }
 
-    like_button_elem = article.find("div", class_="like-button-container").find("button")
-    issue["like_count"] = get_engagement_count(like_button_elem)
+    def _extract_author(self, issue) -> str:
+        bylines = issue.get("publishedBylines")
+        if not isinstance(bylines, list) or len(bylines) == 0:
+            return "Unknown"
 
-    comment_button_elem = article.find("button", class_="post-ufi-comment-button")
-    issue["comment_count"] = get_engagement_count(comment_button_elem)
+        return bylines[0].get("name", "Unknown")
 
-    issue_content = article.find("div", class_="available-content")
-    images = issue_content.find_all("img") + issue_content.find_all("figure")
-    issue["image_count"] = len(images)
-
-    links = []
-    for link in issue_content.find_all("a"):
-        links.append({
-            "text": link.get_text().strip(),
-            "url": link.get("href", "").strip()
-        })
-
-    paras = [ p.get_text(" ").strip() for p in issue_content.find_all("p") ]
-    issue["content"] = paras
-    issue["links"] = links
-
-    return issue
-
-def get_engagement_count(button) -> int:
-    if not button:
-        return 0
-    count_div = button.find("div")
-    if not count_div:
-        return 0
-    try:
-        return int(count_div.get_text().strip())
-    except ValueError:
-        return 0
+    def _get_engagement_count(self, button) -> int:
+        if not button:
+            return 0
+        count_div = button.find("div")
+        if not count_div:
+            return 0
+        try:
+            return int(count_div.get_text().strip())
+        except ValueError:
+            return 0
