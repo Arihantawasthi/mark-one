@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter
 from app.db import queries
 from app.llm.models import AnalysisResponse
@@ -51,8 +52,11 @@ search_results = [
     }
 ]
 
-@router.get("/")
-def health_check():
+logger = logging.getLogger(__name__)
+
+@router.get("")
+async def health_check():
+    logger.info("Health check endpoint called!")
     return { "status": "ok", "service": "scrapper" }
 
 @router.get("/trigger-analysis")

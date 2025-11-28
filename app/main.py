@@ -1,6 +1,12 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import router
+from app.api.middleware import logging_middleware
+from app.core.logger import setup_logging
+
+setup_logging(log_level="INFO", log_file="markone.log")
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Newsletter Market Analysis API")
 
@@ -8,8 +14,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["POST", "GET", "PUT", "DELETE"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
+app.middleware("http")(logging_middleware)
 
 app.include_router(router.router, prefix="/api/v1")
 
