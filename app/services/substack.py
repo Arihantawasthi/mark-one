@@ -68,7 +68,7 @@ class SubstackScraper:
         for widget in article.select("div.subscription-widget-wrap"):
             widget.decompose()
 
-        like_elem = article.find("div", class_="like-button-contaier").find("button")
+        like_elem = article.find("div", class_="like-button-container").find("button")
         like_count = self._get_engagement_count(like_elem)
 
         comment_elem = article.find("button", class_="post-ufi-comment-button")

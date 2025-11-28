@@ -21,17 +21,18 @@ class NewsletterService:
         if not scraped_data or not scraped_data.get("issues"):
             return
 
-        try:
-            issues_payload = []
-            for issue in scraped_data["issues"]:
-                toon_content = self._convert_to_toon(issue)
-                issue["toon_content"] = toon_content
-                issues_payload.append(issue)
+        #try:
+        issues_payload = []
+        for issue in scraped_data["issues"]:
+            toon_content = self._convert_to_toon(issue)
+            issue["toon"] = toon_content
+            issues_payload.append(issue)
 
-            queries.insert_issues(self.analysis_run_id, self.title, issues_payload)
-        except Exception as e:
-            print(f"Error converting issues to toon format: {e}")
-            return
+        queries.insert_issues(self.analysis_run_id, self.title, issues_payload)
+        return
+        #except Exception as e:
+        #    print(f"Error converting issues to toon format: {e}")
+        #    return
 
 
     @staticmethod

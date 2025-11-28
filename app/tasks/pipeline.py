@@ -23,7 +23,7 @@ def issue_analysis_stage(self, analysis_run_id):
     logger.error("STARTED ISSUE ANALYSIS STAGE")
     issues = queries.get_issues_by_analysis_run_id(analysis_run_id)
     analysis_group = group(
-        analyze_issue_task.si(issue)
+        analyze_issue_task.si(analysis_run_id, issue)
         for issue in issues
     )
 
