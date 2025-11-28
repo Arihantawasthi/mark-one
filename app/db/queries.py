@@ -2,7 +2,7 @@ from app.db.connector import DatabaseConnector
 from psycopg import DatabaseError as PsycopgError
 import json
 
-from app.llm.agent import AnalysisResponse
+from app.llm.models import Analysis
 
 class DatabaseError(Exception):
     pass
@@ -34,8 +34,8 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
     sql = """
         INSERT INTO issue (
             newsletter, analysis_run_id, title, subtitle, author, canonical_url, published_date,
-            content, like_count, comment_count, links, toon, image_count
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            content, like_count, comment_count, links, toon, image_count, platform
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 
     db_conn = DatabaseConnector().connect()
@@ -56,7 +56,8 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
                         issue["comment_count"],
                         json.dumps(issue["links"]),
                         issue["toon"],
-                        issue["image_count"]
+                        issue["image_count"],
+                        issue["platform"]
                     )
                     for issue in issues
                 ]
@@ -119,7 +120,7 @@ def serialize_links(obj):
     }
 
 
-def insert_issue_analysis(issue_id: int, analysis: AnalysisResponse):
+def insert_issue_analysis(issue_id: int, analysis: Analysis):
     data = {
         "issue_id": issue_id,
         "title": analysis.title,
@@ -144,6 +145,7 @@ def insert_issue_analysis(issue_id: int, analysis: AnalysisResponse):
         "overall_summary": analysis.overall_summary,
         "overall_intent": analysis.overall_intent,
         "overall_tone": analysis.overall_tone,
+        "platform": analysis.platform,
     }
 
     columns = ", ".join(data.keys())

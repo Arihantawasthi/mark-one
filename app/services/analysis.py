@@ -14,7 +14,8 @@ class AnalysisService:
             **analysis_response.model_dump(),
             image_count=self.issue.get("image_count", 0),
             like_count=self.issue.get("like_count", 0),
-            comment_count=self.issue.get("comment_count", 0)
+            comment_count=self.issue.get("comment_count", 0),
+            platform=self.issue.get("platform", "")
         )
 
         queries.insert_issue_analysis(self.issue["id"], analysis_model)

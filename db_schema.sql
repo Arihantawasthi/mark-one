@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS issue (
     links JSONB,
     toon TEXT NOT NULL,
     image_count INT DEFAULT 0,
+    platform VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS issue_analytics (
     overall_summary TEXT,
     overall_intent TEXT,
     overall_tone TEXT,
+    platform VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

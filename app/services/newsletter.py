@@ -8,10 +8,11 @@ class NewsletterService:
         self.analysis_run_id = analysis_run_id
         self.title = search_result["title"]
         self.scraper = None
+        self.platform = None
 
         if "substack" in search_result["link"]:
             self.scraper = SubstackScraper(search_result)
-
+            self.platform = "substack"
 
     def process_and_save_issues(self):
         if not self.scraper:
@@ -26,6 +27,7 @@ class NewsletterService:
         for issue in scraped_data["issues"]:
             toon_content = self._convert_to_toon(issue)
             issue["toon"] = toon_content
+            issue["platform"] = self.platform
             issues_payload.append(issue)
 
         queries.insert_issues(self.analysis_run_id, self.title, issues_payload)

@@ -52,3 +52,4 @@ class Analysis(AnalysisResponse):
     image_count: int
     like_count: int
     comment_count: int
+    platform: str
