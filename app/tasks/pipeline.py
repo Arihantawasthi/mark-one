@@ -27,7 +27,8 @@ def issue_analysis_stage(self, analysis_run_id):
         for issue in issues
     )
 
-    queries.update_analysis_run_issues_and_status(analysis_run_id, len(issues), "completed")
     issue_ids = [ issue["id"] for issue in issues ]
-    return chord(analysis_group, aggregate_issue_analysis.si(issue_ids, analysis_run_id))()
-    # return chord(analysis_group, test_task.si())()
+    chord(analysis_group, aggregate_issue_analysis.si(issue_ids, analysis_run_id))()
+    queries.update_analysis_run_issues_and_status(analysis_run_id, len(issues), "completed")
+    print("ISSUE ANALYSIS STAGE COMPLETED")
+    return
