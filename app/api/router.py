@@ -1,8 +1,10 @@
+import json
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, WebSocket
 from app.db import queries
 from app.tasks.pipeline import scraping_stage
 from app.tasks.newsletter_tasks import aggregate_issue_analysis
+from app.services.pubsub import redis_client_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["newsletter"])
@@ -74,14 +76,33 @@ def trigger_analysis():
 
     scraping_stage.delay(analysis_run_id, search_results)
 
-    return { "status": "ok", "message": "Analysis triggered" }
+    return { "status": "ok", "message": "Analysis triggered", "analysis_run_id": analysis_run_id }
+
+@router.websocket("/status/{analysis_run_id}")
+async def analysis_status(websocket: WebSocket, analysis_run_id: int):
+    await websocket.accept()
+
+    pubsub = redis_client_async.pubsub()
+    await pubsub.subscribe(f"analysis_status:{analysis_run_id}")
+
+    try:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                data = json.loads(message["data"])
+                await websocket.send_json(data)
+
+    except Exception as e:
+        logger.error(
+            f"WebSocket error: {e}",
+            extra={"analysis_run_id": analysis_run_id, "error": str(e)},
+            exc_info=True
+        )
+
+    finally:
+        await pubsub.unsubscribe(f"analysis_status:{analysis_run_id}")
+        await websocket.close()
 
 @router.get("/get-analysis")
-def get_analysis():
+async def get_analysis():
     analysis = queries.get_issue_analysis()
     return { "status": "ok", "message": "Analysis exported to analysis_export.csv", "data": analysis }
-
-@router.get("/test-agg-analysis")
-def test_agg_analysis():
-    result = aggregate_issue_analysis(18)
-    return { "status": "ok", "data": result }

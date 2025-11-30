@@ -50,6 +50,8 @@ def setup_logging(log_level: str = "INFO", log_file: str = "app.log") -> None:
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 def set_request_id(request_id: str | None = None) -> str:
     if not request_id:

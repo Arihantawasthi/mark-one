@@ -5,8 +5,8 @@ import app.core.settings as settings
 
 celery_app = Celery(
     'mark-one',
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=settings.REDIS_BROKER_URL,
+    backend=settings.REDIS_BROKER_URL,
     include=['app.tasks.newsletter_tasks', 'app.tasks.pipeline']
 )
 

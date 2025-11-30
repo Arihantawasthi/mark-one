@@ -1,8 +1,8 @@
 from celery import chord, group
 
 from app.celery.config import celery_app
-from app.core.logger import set_request_id
 from app.db import queries
+from app.services.pubsub import publish_status
 from app.tasks.newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, aggregate_issue_analysis, test_task
 import logging
 
@@ -18,6 +18,15 @@ def scraping_stage(self, analysis_run_id, search_results):
                 "search_results": search_results,
                 "search_result_count": len(search_results)
             }
+        )
+        import time
+        time.sleep(5)
+        publish_status(
+            analysis_run_id,
+            "Scraping",
+            "Scraping newsletters",
+            f"Starting to scrape {len(search_results) * 5} newsletters.",
+            1
         )
         scraping_group = [
             process_and_save_newsletters_task.si(analysis_run_id, search_result)
@@ -39,7 +48,6 @@ def scraping_stage(self, analysis_run_id, search_results):
         raise e
 
 
-
 @celery_app.task(name="issue_analysis_stage", bind=True)
 def issue_analysis_stage(self, analysis_run_id):
     try:
@@ -49,6 +57,15 @@ def issue_analysis_stage(self, analysis_run_id):
         )
         issues = queries.get_issues_by_analysis_run_id(analysis_run_id)
         issue_ids = [ issue["id"] for issue in issues ]
+        publish_status(
+            analysis_run_id,
+            "Issue Analysis",
+            "Analyzing newsletter issues",
+            f"Starting analysis of {len(issues)} newsletter issues.",
+            2
+        )
+        import time
+        time.sleep(5)
         logger.info(
             "[Stage: Issue Analysis] Found Issues",
             extra={ "analysis_run_id": analysis_run_id, "issue_count": len(issues) }

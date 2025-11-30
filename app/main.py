@@ -13,7 +13,7 @@ app = FastAPI(title="Newsletter Market Analysis API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["POST", "GET", "PUT", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 app.middleware("http")(logging_middleware)
