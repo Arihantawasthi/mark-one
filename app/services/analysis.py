@@ -1,7 +1,11 @@
+import logging
 from toon_format import encode
 from app.db import queries
 from app.llm import agent
 from app.llm.models import AggregateAnalysis, AggregateAnalysisResponse, Analysis, AnalysisResponse
+
+logger = logging.getLogger(__name__)
+
 
 class AnalysisService:
     def __init__(self, analysis_run_id: int, issue: dict):
@@ -9,6 +13,11 @@ class AnalysisService:
         self.analysis_run_id = analysis_run_id
 
     def analyze_issue(self):
+        logger.info(
+            f"[Issue Analysis] Calling LLM for issue ID: {self.issue['id']}",
+            extra={ "analysis_run_id": self.analysis_run_id, "issue_id": self.issue["id"] }
+        )
+
         analysis_response: AnalysisResponse = agent.analyze_newsletter_issue(self.issue)
         analysis_model = Analysis(
             **analysis_response.model_dump(),
@@ -20,10 +29,24 @@ class AnalysisService:
 
         queries.insert_issue_analysis(self.issue["id"], analysis_model)
 
+        logger.info(
+            f"[Issue Analysis] Completed and saved Analysis for issue ID: {self.issue['id']}",
+            extra={ "analysis_run_id": self.analysis_run_id, "issue_id": self.issue["id"] }
+        )
+
 
     def aggregate_analysis(self, issue_ids: list[int]):
+        logger.info(
+            f"[Aggregate Analysis] Loading issue anayses",
+            extra={ "analysis_run_id": self.analysis_run_id, "issue_count": len(issue_ids) }
+        )
+
         issue_analyses = queries.get_issue_analyses_by_issue_ids(issue_ids)
         if not issue_analyses:
+            logger.error(
+                f"[Aggregate Analysis] No issue analyses found",
+                extra={ "analysis_run_id": self.analysis_run_id }
+            )
             return None
 
         engagement_graph = self._generate_engagement_graph(issue_analyses)
@@ -37,10 +60,21 @@ class AnalysisService:
         ]
 
         encoded_metrics = encode(metrics_to_analyze)
+
+        logger.info(
+            f"[Aggregate Analysis] Calling LLM for aggregate analysis",
+            extra={ "analysis_run_id": self.analysis_run_id  }
+        )
         agg_response: AggregateAnalysisResponse = agent.aggregate_issue_analysis(encoded_metrics)
         aggregate_analysis_obj = self._construct_agg_obj(agg_response, engagement_graph, issue_analyses)
 
-        return queries.insert_aggregate_issue_analysis(self.analysis_run_id, aggregate_analysis_obj)
+        results = queries.insert_aggregate_issue_analysis(self.analysis_run_id, aggregate_analysis_obj)
+        logger.info(
+            f"[Aggregate Analysis] Completed and saved aggregate analysis",
+            extra={ "analysis_run_id": self.analysis_run_id  }
+        )
+        return results
+
 
 
     def _generate_engagement_graph(self, issue_analyses: dict) -> dict:

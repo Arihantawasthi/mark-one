@@ -18,3 +18,6 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 SUBSTACK_ARCHIVE_SUFFIX = os.getenv("SUBSTACK_ARCHIVE_SUFFIX", "/api/v1/archive?sort=new&search=&offset=0&limit=")
 MAX_ISSUES = int(os.getenv("MAX_ISSUES", 5))
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FILE = os.getenv("LOG_FILE", "markone-celery.log")

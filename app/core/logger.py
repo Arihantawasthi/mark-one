@@ -51,7 +51,7 @@ def setup_logging(log_level: str = "INFO", log_file: str = "app.log") -> None:
     logger.addHandler(file_handler)
 
 
-def set_request_id(request_id: str | None= None) -> str:
+def set_request_id(request_id: str | None = None) -> str:
     if not request_id:
         request_id = str(uuid.uuid4())
     request_id_ctx.set(request_id)
