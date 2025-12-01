@@ -2,6 +2,8 @@ import json
 import logging
 from fastapi import APIRouter, WebSocket
 from app.db import queries
+from app.services.beehiiv import BeehiivScraper
+from app.services.newsletter import NewsletterService
 from app.tasks.pipeline import scraping_stage
 from app.tasks.newsletter_tasks import aggregate_issue_analysis
 from app.services.pubsub import redis_client_async
@@ -50,6 +52,19 @@ search_results = [
         "position": 6,
         "title": "TheFUSE — A Wichita Falls Arts & Entertainment newsletter",
         "link": "https://fallstownfuse.substack.com/",
+    },
+    {
+        "position": 7,
+        "title": "Joker Mag | Beehiiv",
+        "link": "https://underdog.beehiiv.com/"
+    }
+]
+
+search_results_b = [
+    {
+        "position": 7,
+        "title": "The Sports Edit Newsletter | Beehiiv",
+        "link": "https://newsletter.jokermag.com/"
     }
 ]
 
@@ -106,3 +121,9 @@ async def analysis_status(websocket: WebSocket, analysis_run_id: int):
 async def get_analysis():
     analysis = queries.get_issue_analysis()
     return { "status": "ok", "message": "Analysis exported to analysis_export.csv", "data": analysis }
+
+@router.get("/get-beehiiv")
+def get_beehiiv():
+    beehiv_scraper = BeehiivScraper(search_results_b[0])
+    data = beehiv_scraper.scrape_newsletter()
+    return { "status": "ok", "data": data }

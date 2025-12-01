@@ -2,6 +2,7 @@ import logging
 from toon_format import encode
 
 from app.db import queries
+from app.services.beehiiv import BeehiivScraper
 from app.services.substack import SubstackScraper
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,9 @@ class NewsletterService:
         if "substack" in search_result["link"]:
             self.scraper = SubstackScraper(search_result)
             self.platform = "substack"
+        if "beehiiv" in search_result["link"]:
+            self.scraper = BeehiivScraper(search_result)
+            self.platform = "beehiiv"
 
     def process_and_save_issues(self):
         if not self.scraper:
