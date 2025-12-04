@@ -23,3 +23,7 @@ MAX_ISSUES = int(os.getenv("MAX_ISSUES", 5))
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE = os.getenv("LOG_FILE", "markone-celery.log")
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+BASE_SEARCH_URL = os.getenv("BASE_SEARCH_URL")

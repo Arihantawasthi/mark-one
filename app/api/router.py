@@ -1,9 +1,11 @@
 import json
 import logging
 from fastapi import APIRouter, WebSocket
+from app.core import settings
 from app.db import queries
 from app.services.beehiiv import BeehiivScraper
 from app.services.newsletter import NewsletterService
+from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage
 from app.tasks.newsletter_tasks import aggregate_issue_analysis
 from app.services.pubsub import redis_client_async
@@ -117,10 +119,23 @@ async def analysis_status(websocket: WebSocket, analysis_run_id: int):
         await pubsub.unsubscribe(f"analysis_status:{analysis_run_id}")
         await websocket.close()
 
+
+@router.post("/search")
+async def search_newsletter_links(body: dict[str, list]):
+    search_terms = body.get("queries", [])
+    if not search_terms:
+        return { "status": "error", "message": "No search terms provided" }
+
+    search_service = SearchService(search_terms)
+    results = await search_service.search()
+    return { "status": "ok", "size": len(results), "data": results }
+
+
 @router.get("/get-analysis")
 async def get_analysis():
     analysis = queries.get_issue_analysis()
     return { "status": "ok", "message": "Analysis exported to analysis_export.csv", "data": analysis }
+
 
 @router.get("/get-beehiiv")
 def get_beehiiv():
