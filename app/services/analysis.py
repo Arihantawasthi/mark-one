@@ -69,6 +69,7 @@ class AnalysisService:
         aggregate_analysis_obj = self._construct_agg_obj(agg_response, engagement_graph, issue_analyses)
 
         results = queries.insert_aggregate_issue_analysis(self.analysis_run_id, aggregate_analysis_obj)
+        queries.update_analysis_run_issues_and_status(self.analysis_run_id, len(issue_ids), "completed")
         logger.info(
             f"[Aggregate Analysis] Completed and saved aggregate analysis",
             extra={ "analysis_run_id": self.analysis_run_id  }

@@ -1,6 +1,7 @@
 from app.celery.config import celery_app
 import logging
 
+from app.db import queries
 from app.services.analysis import AnalysisService
 from app.services.newsletter import NewsletterService
 from app.services.pubsub import publish_status
@@ -19,7 +20,7 @@ def process_and_save_newsletters_task(self, analysis_run_id, search_result):
             "Scraping",
             "Processing Newsletters",
             f"Processing newsletter: {search_result['title']}",
-            3
+            75
         )
 
         NewsletterService(analysis_run_id, search_result).process_and_save_issues()
@@ -49,7 +50,7 @@ def analyze_issue_task(self, analysis_run_id, issue):
             "Issue Analysis",
             "Analyzing Newsletter Issues",
             f"Analyzing issue ID: {issue['id']}",
-            4
+            90
         )
 
         AnalysisService(analysis_run_id, issue).analyze_issue()
@@ -81,15 +82,16 @@ def aggregate_issue_analysis(self, issue_ids, analysis_run_id):
             extra={ "analysis_run_id": analysis_run_id, "issue_count": len(issue_ids),
                     "issue_ids": issue_ids }
         )
+
+        AnalysisService(analysis_run_id, {}).aggregate_analysis(issue_ids)
+
         publish_status(
             analysis_run_id,
             "Aggregate Analysis",
             "Aggregating Issue Analyses",
             f"Aggregating analyses for {len(issue_ids)} issues.",
-            5
+            100
         )
-
-        AnalysisService(analysis_run_id, {}).aggregate_analysis(issue_ids)
 
         logger.info(
             f"[Aggregate Analysis] Completed aggregation analysis",

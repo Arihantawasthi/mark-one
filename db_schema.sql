@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS client (
 
 CREATE TABLE IF NOT EXISTS analysis_run (
     id SERIAL PRIMARY KEY, -- maybe later client_id will be added as FK
+    display_title VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
     notion_doc_url TEXT,
     niche TEXT,
@@ -82,4 +83,11 @@ CREATE TABLE IF NOT EXISTS issue_aggregate_analytics (
     overall_intent TEXT,
     engagement_graph JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-)
+);
+
+CREATE TABLE analysis_statuses (
+    analysis_run_id BIGINT PRIMARY KEY
+        REFERENCES analysis_run(id) ON DELETE CASCADE,
+    statuses JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

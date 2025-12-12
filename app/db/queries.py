@@ -7,10 +7,10 @@ from app.llm.models import Analysis
 class DatabaseError(Exception):
     pass
 
-def insert_analysis_run(notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
+def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
     sql = """
-        INSERT INTO analysis_run (notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO analysis_run (display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
     """
 
@@ -18,7 +18,7 @@ def insert_analysis_run(notion_doc_url, niche, search_terms, total_newsletters, 
     try:
         with db_conn:
             with db_conn.cursor() as cursor:
-                cursor.execute(sql, (notion_doc_url, niche, search_terms, total_newsletters, total_issues, status))
+                cursor.execute(sql, (display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status))
                 analysis_run_id = cursor.fetchone()["id"]
                 return analysis_run_id
 
@@ -240,3 +240,106 @@ def insert_aggregate_issue_analysis(analysis_run_id: int, aggregate_analysis):
     except PsycopgError as e:
         db_conn.rollback()
         raise DatabaseError(f"Error inserting aggregate issue analysis: {e}")
+
+
+def get_analysis_status(analysis_run_id: int):
+    sql = """SELECT status FROM analysis_run WHERE id = %s;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (analysis_run_id,))
+                result = cursor.fetchone()
+                return result["status"] if result else None
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching analysis run status: {e}")
+
+
+def get_agg_issue_analysis_by_run_id(analysis_run_id: int):
+    sql = """SELECT * FROM issue_aggregate_analytics WHERE analysis_run_id = %s;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (analysis_run_id,))
+                result = cursor.fetchone()
+                return result
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching aggregate issue analysis: {e}")
+
+# Need to optimize this (Maybe add issue_analytics.analysis_run_id field)
+def get_issue_analyses_by_analysis_run_id(analysis_run_id: int):
+    sql = """ SELECT * FROM issue_analytics ia
+             JOIN issue i ON ia.issue_id = i.id
+             WHERE i.analysis_run_id = %s;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (analysis_run_id,))
+                analyses = cursor.fetchall()
+                return analyses
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching issue analytics by analysis run ID: {e}")
+
+
+def put_progress_statuses(analysis_run_id: int, status: dict):
+    sql = """
+        INSERT INTO analysis_statuses (analysis_run_id, statuses)
+        VALUES (%s, %s::jsonb)
+        ON CONFLICT (analysis_run_id)
+        DO UPDATE SET
+            statuses = analysis_statuses.statuses || %s::jsonb,
+            updated_at = NOW();
+    """
+
+    db_conn = DatabaseConnector().connect()
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                status_json_array = json.dumps([status])
+                cursor.execute(sql, (analysis_run_id, status_json_array, status_json_array))
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error updating progress status: {e}")
+
+
+def get_analysis_progress_status(analysis_run_id: int):
+    sql = """SELECT statuses FROM analysis_statuses WHERE analysis_run_id = %s;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (analysis_run_id,))
+                result = cursor.fetchone()
+                return result["statuses"] if result else []
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching analysis progress status: {e}")
+
+def get_all_analyses():
+    sql = """SELECT * FROM analysis_run;"""
+    db_conn = DatabaseConnector().connect()
+
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql)
+                analyses = cursor.fetchall()
+                return analyses
+
+    except PsycopgError as e:
+        db_conn.rollback()
+        raise DatabaseError(f"Error fetching all issue analyses: {e}")

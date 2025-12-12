@@ -1,12 +1,49 @@
+import asyncio
 from celery import chord, group
 
 from app.celery.config import celery_app
 from app.db import queries
 from app.services.pubsub import publish_status
+from app.services.search import SearchService
 from app.tasks.newsletter_tasks import process_and_save_newsletters_task, analyze_issue_task, aggregate_issue_analysis, test_task
 import logging
 
 logger = logging.getLogger(__name__)
+
+@celery_app.task(name="search_stage", bind=True)
+def search_stage(self, analysis_run_id, search_queries):
+    logger.info(f"Running test task...", extra={"analysis_run_id": analysis_run_id})
+    try:
+        logger.info(
+            "[Stage: Search] Started Search Stage",
+            extra={"analysis_run_id": analysis_run_id, "queries": search_queries}
+        )
+        search_service = SearchService(search_queries)
+        search_results = asyncio.run(search_service.search())
+
+        publish_status(
+            analysis_run_id,
+            "Search",
+            "Searching for newsletters",
+            f"Found {len(search_results)} newsletters matching the search terms.",
+            20
+        )
+
+        scraping_stage.delay(analysis_run_id, search_results[0:2])
+
+        logger.info(
+            "[Stage: Search] Completed Search Stage",
+            extra={"analysis_run_id": analysis_run_id, "search_result_count": len(search_results)}
+        )
+        return None
+
+    except Exception as e:
+        logger.error(
+            "[Stage: Search] FAILED",
+            extra={"analysis_run_id": analysis_run_id, "error": str(e)},
+            exc_info=True
+        )
+        raise e
 
 @celery_app.task(name="scraping_stage", bind=True)
 def scraping_stage(self, analysis_run_id, search_results):
@@ -19,14 +56,12 @@ def scraping_stage(self, analysis_run_id, search_results):
                 "search_result_count": len(search_results)
             }
         )
-        import time
-        time.sleep(5)
         publish_status(
             analysis_run_id,
             "Scraping",
             "Scraping newsletters",
             f"Starting to scrape {len(search_results) * 5} newsletters.",
-            1
+            25
         )
         scraping_group = [
             process_and_save_newsletters_task.si(analysis_run_id, search_result)
@@ -62,10 +97,8 @@ def issue_analysis_stage(self, analysis_run_id):
             "Issue Analysis",
             "Analyzing newsletter issues",
             f"Starting analysis of {len(issues)} newsletter issues.",
-            2
+            50
         )
-        import time
-        time.sleep(5)
         logger.info(
             "[Stage: Issue Analysis] Found Issues",
             extra={ "analysis_run_id": analysis_run_id, "issue_count": len(issues) }
@@ -77,7 +110,6 @@ def issue_analysis_stage(self, analysis_run_id):
         )
 
         chord(analysis_group, aggregate_issue_analysis.si(issue_ids, analysis_run_id))()
-        queries.update_analysis_run_issues_and_status(analysis_run_id, len(issues), "completed")
         logger.info(
             "[Stage: Issue Analysis] Issue analysis tasks submitted",
             extra={ "analysis_run_id": analysis_run_id },
