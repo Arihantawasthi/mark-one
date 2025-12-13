@@ -1,13 +1,11 @@
 import json
 import logging
-from fastapi import APIRouter, Path, WebSocket
-from app.core import settings
+from fastapi import APIRouter, WebSocket
 from app.db import queries
 from app.services.beehiiv import BeehiivScraper
-from app.services.newsletter import NewsletterService
 from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage, search_stage
-from app.tasks.newsletter_tasks import aggregate_issue_analysis, analyze_manual_issue_task
+from app.tasks.newsletter_tasks import analyze_manual_issue_task
 from app.services.pubsub import redis_client_async
 
 logger = logging.getLogger(__name__)
