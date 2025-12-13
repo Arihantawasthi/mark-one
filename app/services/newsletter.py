@@ -35,7 +35,7 @@ class NewsletterService:
         )
 
         scraped_data = self.scraper.scrape_newsletter()
-        if not scraped_data or not scraped_data.get("issues"):
+        if not scraped_data:
             logger.warning(
                 f"[Scrape] No issues found",
                 extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
@@ -44,13 +44,13 @@ class NewsletterService:
 
         #try:
         issues_payload = []
-        for issue in scraped_data["issues"]:
+        for issue in scraped_data:
             toon_content = self._convert_to_toon(issue)
             issue["toon"] = toon_content
             issue["platform"] = self.platform
             issues_payload.append(issue)
 
-        queries.insert_issues(self.analysis_run_id, self.title, issues_payload)
+        queries.insert_issues(self.analysis_run_id, issues_payload)
         logger.info(
             f"[Scrape] Inserted {len(issues_payload)} issues into database",
             extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
@@ -58,6 +58,42 @@ class NewsletterService:
         #except Exception as e:
         #    print(f"Error converting issues to toon format: {e}")
         #    return
+
+    def process_and_save_manual_issues(self, issue_urls: list[str]) -> list:
+        if not self.scraper:
+            logger.info(
+                f"[Scrape] Skipping unsupported platform for manual issues",
+                extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
+            )
+            return []
+
+        logger.info(
+            f"[Scrape] Fetching and Scraping manual issues",
+            extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
+        )
+
+        scraped_data = self.scraper.scrape_manual_issues(issue_urls)
+        if not scraped_data:
+            logger.warning(
+                f"[Scrape] No manual issues found",
+                extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
+            )
+            return []
+
+        issues_payload = []
+        for issue in scraped_data:
+            toon_content = self._convert_to_toon(issue)
+            issue["toon"] = toon_content
+            issue["platform"] = self.platform
+            issues_payload.append(issue)
+
+        issues = queries.insert_issues(self.analysis_run_id, issues_payload)
+        logger.info(
+            f"[Scrape] Inserted {len(issues_payload)} manual issues into database",
+            extra={ "analysis_run_id": self.analysis_run_id, "platform": self.platform, "newsletter_title": self.title }
+        )
+
+        return issues
 
 
     @staticmethod

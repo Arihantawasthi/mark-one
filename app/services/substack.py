@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
 import requests
@@ -14,13 +15,13 @@ class SubstackScraper:
         self.acrhive_link = f"{search_result['link']}{settings.SUBSTACK_ARCHIVE_SUFFIX}{settings.MAX_ISSUES}"
 
 
-    def scrape_newsletter(self):
+    def scrape_newsletter(self) -> list[dict]:
         try:
             r = requests.get(self.acrhive_link, timeout=10)
             r.raise_for_status()
         except requests.RequestException as e:
             logger.error(f"Failed to fetch Substack archive: {e}")
-            return {}
+            return []
 
         issues_data = r.json()
         scraped_issues = []
@@ -40,6 +41,7 @@ class SubstackScraper:
                 scraped_issue_details["comment_count"] = content_data["comment_count"]
                 scraped_issue_details["image_count"] = content_data["image_count"]
                 scraped_issue_details["links"] = content_data["links"]
+                scraped_issue_details["newsletter"] = self.search_result["title"]
 
                 scraped_issues.append(scraped_issue_details)
 
@@ -47,10 +49,40 @@ class SubstackScraper:
                 logger.error(f"Failed to scrape issue content: {e.detail}")
                 continue
 
-        return {
-            "title": self.search_result["title"],
-            "issues": scraped_issues
-        }
+        return scraped_issues
+
+
+    def scrape_manual_issues(self, issue_urls: list[str]) -> list[dict]:
+        scrapped_issues = []
+
+        for issue_url in issue_urls:
+            try:
+                newsletter = ""
+                parsed_url = urlparse(issue_url)
+                if "www." in parsed_url.netloc:
+                    newsletter = ""
+
+                newsletter = parsed_url.netloc.split(".")[0]
+                content_data = self._scrape_issue_content(issue_url)
+                scrapped_issues.append({
+                    "newsletter": newsletter,
+                    "title": content_data["title"],
+                    "subtitle": content_data["subtitle"],
+                    "link": issue_url,
+                    "date": None,
+                    "author": "Unknown",
+                    "content": content_data["content"],
+                    "like_count": content_data["like_count"],
+                    "comment_count": content_data["comment_count"],
+                    "image_count": content_data["image_count"],
+                    "links": content_data["links"]
+                })
+            except HTTPException as e:
+                logger.error(f"Failed to scrape manual issue content: {e.detail}")
+                continue
+
+        return scrapped_issues
+
 
     def _scrape_issue_content(self, issue_url: str) -> dict:
         r = requests.get(issue_url, timeout=10)
@@ -68,8 +100,16 @@ class SubstackScraper:
         for widget in article.select("div.subscription-widget-wrap"):
             widget.decompose()
 
-        like_elem = article.find("div", class_="like-button-container").find("button")
-        like_count = self._get_engagement_count(like_elem)
+        post_header = article.find("div", {"class": "post-header"})
+        title = post_header.find("h1").get_text().strip()
+        subtitle = post_header.find("h3").get_text().strip()
+
+        like_elem_container = article.find("div", class_="like-button-container")
+        if like_elem_container:
+            like_elem = like_elem_container.find("button")
+            like_count = self._get_engagement_count(like_elem)
+        else:
+            like_count = 0
 
         comment_elem = article.find("button", class_="post-ufi-comment-button")
         comment_count = self._get_engagement_count(comment_elem)
@@ -87,6 +127,8 @@ class SubstackScraper:
         paras = [ p.get_text(" ").strip() for p in issue_content.find_all("p") ]
 
         return {
+            "title": title,
+            "subtitle": subtitle,
             "content": paras,
             "like_count": like_count,
             "comment_count": comment_count,

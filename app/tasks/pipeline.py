@@ -29,7 +29,7 @@ def search_stage(self, analysis_run_id, search_queries):
             20
         )
 
-        scraping_stage.delay(analysis_run_id, search_results[0:2])
+        scraping_stage.delay(analysis_run_id, search_results)
 
         logger.info(
             "[Stage: Search] Completed Search Stage",

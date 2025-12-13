@@ -27,15 +27,16 @@ def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, tota
         raise DatabaseError(f"Error inserting search run: {e}")
 
 
-def insert_issues(analysis_run_id, newsletter_title, issues):
+def insert_issues(analysis_run_id, issues) -> list:
     if not issues:
-        return
+        return []
 
     sql = """
         INSERT INTO issue (
-            newsletter, analysis_run_id, title, subtitle, author, canonical_url, published_date,
+            analysis_run_id, newsletter, title, subtitle, author, canonical_url, published_date,
             content, like_count, comment_count, links, toon, image_count, platform
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING *;
     """
 
     db_conn = DatabaseConnector().connect()
@@ -44,8 +45,8 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
             with db_conn.cursor() as cursor:
                 rows = [
                     (
-                        newsletter_title,
                         analysis_run_id,
+                        issue["newsletter"],
                         issue["title"],
                         issue["subtitle"],
                         issue["author"],
@@ -61,12 +62,12 @@ def insert_issues(analysis_run_id, newsletter_title, issues):
                     )
                     for issue in issues
                 ]
-                cursor.executemany(sql, rows)
+                cursor.executemany(sql, rows, returning=True)
+                return cursor.fetchall()
 
     except PsycopgError as e:
         db_conn.rollback()
         raise DatabaseError(f"Error inserting issues: {e}")
-
 
 def update_analysis_run_issues_and_status(analysis_run_id: int, total_issues: int, status: str):
     """
@@ -277,7 +278,7 @@ def get_agg_issue_analysis_by_run_id(analysis_run_id: int):
 def get_issue_analyses_by_analysis_run_id(analysis_run_id: int):
     sql = """ SELECT * FROM issue_analytics ia
              JOIN issue i ON ia.issue_id = i.id
-             WHERE i.analysis_run_id = %s;"""
+             WHERE i.analysis_run_id = %s ORDER BY i.created_at DESC;"""
     db_conn = DatabaseConnector().connect()
 
     try:

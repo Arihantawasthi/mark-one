@@ -42,6 +42,7 @@ class SearchService:
             "key": self.api_key,
             "cx": self.csx,
             "q": search_query,
+            "num": 5,
         }
 
         async with httpx.AsyncClient() as client:
@@ -55,6 +56,7 @@ class SearchService:
             "key": self.api_key,
             "cx": self.csx,
             "q": search_query,
+            "num": 5,
         }
 
         async with httpx.AsyncClient() as client:

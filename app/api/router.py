@@ -7,7 +7,7 @@ from app.services.beehiiv import BeehiivScraper
 from app.services.newsletter import NewsletterService
 from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage, search_stage
-from app.tasks.newsletter_tasks import aggregate_issue_analysis
+from app.tasks.newsletter_tasks import aggregate_issue_analysis, analyze_manual_issue_task
 from app.services.pubsub import redis_client_async
 
 logger = logging.getLogger(__name__)
@@ -125,6 +125,19 @@ def start_links_analysis(body: dict[str, list]):
     return { "requestStatus": 1, "message": "Analysis started", "analysis_id": analysis_run_id }
 
 
+@router.post("/start-manual-issues-analysis")
+def start_manual_issues_analysis(body: dict):
+    links = body.get("issue_urls", [])
+    analysis_run_id = body.get("analysis_id", None)
+    if not links or not analysis_run_id:
+        return { "requestStatus": 0, "message": "No links provided or Analysis Id not found" }
+
+    search_results = [ { "link": link, "title": "Custom" } for link in links ]
+    analyze_manual_issue_task.delay(analysis_run_id, search_results, links)
+
+    return { "requestStatus": 1, "message": "Manual issues analysis started", "analysis_id": analysis_run_id }
+
+
 @router.websocket("/ws/status/{analysis_run_id}")
 async def ws_analysis_status(websocket: WebSocket, analysis_run_id: int):
     await websocket.accept()
@@ -149,35 +162,6 @@ async def ws_analysis_status(websocket: WebSocket, analysis_run_id: int):
     finally:
         await pubsub.unsubscribe(f"analysis_status:{analysis_run_id}")
         await websocket.close()
-
-
-@router.websocket("/ws/test-status")
-async def ws_test_status(websocket: WebSocket):
-    await websocket.accept()
-    mock_progress = [
-        { "stage": "Search", "title": "Searching for newsletters", "detail": "Searching...", "progress": 20 },
-        { "stage": "Scraping", "title": "Scraping newsletters", "detail": "Scraping...", "progress": 40 },
-        { "stage": "Issue Analysis", "title": "Analyzing newsletter issues", "detail": "Analyzing...", "progress": 60 },
-        { "stage": "Aggregation", "title": "Aggregating analysis", "detail": "Aggregating...", "progress": 80 },
-        { "stage": "Completed", "title": "Analysis completed", "detail": "Done!", "progress": 100 }
-    ]
-
-    for progress in mock_progress:
-        import asyncio
-        await websocket.send_json(progress)
-        await asyncio.sleep(5)
-
-
-@router.post("/search")
-async def search_newsletter_links(body: dict[str, list]):
-    search_terms = body.get("queries", [])
-    if not search_terms:
-        return { "status": "error", "message": "No search terms provided" }
-
-    search_service = SearchService(search_terms)
-    results = await search_service.search()
-    return { "status": "ok", "size": len(results), "data": results }
-
 
 @router.get("/analysis-status/{analysis_run_id}")
 def analysis_status(analysis_run_id: int):
@@ -225,3 +209,31 @@ def get_beehiiv():
     beehiv_scraper = BeehiivScraper(search_results_b[0])
     data = beehiv_scraper.scrape_newsletter()
     return { "status": "ok", "data": data }
+
+
+@router.websocket("/ws/test-status")
+async def ws_test_status(websocket: WebSocket):
+    await websocket.accept()
+    mock_progress = [
+        { "stage": "Search", "title": "Searching for newsletters", "detail": "Searching...", "progress": 20 },
+        { "stage": "Scraping", "title": "Scraping newsletters", "detail": "Scraping...", "progress": 40 },
+        { "stage": "Issue Analysis", "title": "Analyzing newsletter issues", "detail": "Analyzing...", "progress": 60 },
+        { "stage": "Aggregation", "title": "Aggregating analysis", "detail": "Aggregating...", "progress": 80 },
+        { "stage": "Completed", "title": "Analysis completed", "detail": "Done!", "progress": 100 }
+    ]
+
+    for progress in mock_progress:
+        import asyncio
+        await websocket.send_json(progress)
+        await asyncio.sleep(5)
+
+
+@router.post("/search")
+async def search_newsletter_links(body: dict[str, list]):
+    search_terms = body.get("queries", [])
+    if not search_terms:
+        return { "status": "error", "message": "No search terms provided" }
+
+    search_service = SearchService(search_terms)
+    results = await search_service.search()
+    return { "status": "ok", "size": len(results), "data": results }

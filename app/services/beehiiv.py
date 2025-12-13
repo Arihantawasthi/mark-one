@@ -12,7 +12,7 @@ class BeehiivScraper:
         self.base_link = search_result.get("link")
         self.archive_link = f"{search_result.get("link")}/archive"
 
-    def scrape_newsletter(self):
+    def scrape_newsletter(self) -> list[dict]:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context()
@@ -23,16 +23,31 @@ class BeehiivScraper:
             scraped_issues = []
             for issue_link in issue_links:
                 issue_html = self._fetch_html(context, issue_link)
-                print(issue_link)
                 issue_data = self._scrape_issue_content(issue_html)
                 issue_data["link"] = issue_link
+                issue_data["newsletter"] = self.search_result.get("title", "Untitled")
                 scraped_issues.append(issue_data)
 
             browser.close()
-            return {
-                "title": self.search_result.get("title", "Untitled"),
-                "issues": scraped_issues
-            }
+
+        return scraped_issues
+
+    def scrape_manual_issues(self, issue_urls: list[str]) -> list[dict]:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+
+            scraped_issues = []
+            for issue_url in issue_urls:
+                issue_html = self._fetch_html(context, issue_url)
+                issue_data = self._scrape_issue_content(issue_html)
+                issue_data["link"] = issue_url
+                issue_data["newsletter"] = self.search_result.get("title", "Untitled")
+                scraped_issues.append(issue_data)
+
+            browser.close()
+
+        return scraped_issues
 
     def _extract_issues_links(self, archive_html: str) -> list[str]:
         issue_links = []

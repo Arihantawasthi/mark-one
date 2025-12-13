@@ -104,3 +104,45 @@ def aggregate_issue_analysis(self, issue_ids, analysis_run_id):
             exc_info=True
         )
         raise e
+
+
+@celery_app.task(name="analyze_manual_issue_task", bind=True)
+def analyze_manual_issue_task(self, analysis_run_id, search_results, issue_links):
+    try:
+        logger.info(
+            f"[Manual Issue Analysis] Starting manual issue analysis",
+            extra={ "analysis_run_id": analysis_run_id, "issue_links": issue_links }
+        )
+        publish_status(
+            analysis_run_id,
+            "Manual Issue Analysis",
+            "Analyzing Manual Newsletter Issues",
+            f"Starting manual issue analysis for {len(issue_links)} issues.",
+            50
+        )
+
+        issues = NewsletterService(analysis_run_id, search_results[0]).process_and_save_manual_issues(issue_links)
+
+        issue_ids = [ issue["id"] for issue in issues ]
+        for issue in issues:
+            AnalysisService(analysis_run_id, issue).analyze_issue()
+            AnalysisService(analysis_run_id, {}).aggregate_analysis(issue_ids)
+
+        logger.info(
+            f"[Manual Issue Analysis] Completed manual issue analysis",
+            extra={ "analysis_run_id": analysis_run_id }
+        )
+        publish_status(
+            analysis_run_id,
+            "Manual Issue Analysis",
+            "Completed Manual Newsletter Issue Analysis",
+            f"Completed manual issue analysis for {len(issue_links)} issues.",
+            100
+        )
+    except Exception as e:
+        logger.error(
+            f"[Manual Issue Analysis] Error during manual issue analysis",
+            extra={ "analysis_run_id": analysis_run_id, "error": str(e) },
+            exc_info=True
+        )
+        raise e
