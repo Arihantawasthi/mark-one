@@ -102,7 +102,10 @@ class SubstackScraper:
 
         post_header = article.find("div", {"class": "post-header"})
         title = post_header.find("h1").get_text().strip()
-        subtitle = post_header.find("h3").get_text().strip()
+        subtitle_elem = post_header.find("h3")
+        subtitle = ""
+        if subtitle_elem:
+            subtitle = subtitle_elem.get_text().strip()
 
         like_elem_container = article.find("div", class_="like-button-container")
         if like_elem_container:
