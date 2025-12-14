@@ -1,5 +1,5 @@
 import logging
-from toon_format import encode
+from toon import encode
 
 from app.db import queries
 from app.services.beehiiv import BeehiivScraper
