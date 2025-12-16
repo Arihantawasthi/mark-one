@@ -21,6 +21,22 @@ def search_stage(self, analysis_run_id, search_queries):
         search_service = SearchService(search_queries)
         search_results = asyncio.run(search_service.search())
 
+        if not search_results:
+            logger.warning(
+                "[Stage: Search] No newsletters found",
+                extra={"analysis_run_id": analysis_run_id}
+            )
+            publish_status(
+                analysis_run_id,
+                "Search",
+                "Searching for newsletters",
+                "No newsletters found matching the search terms.",
+                100
+            )
+            queries.update_analysis_run_issues_and_status(self.analysis_run_id, 0, "completed")
+
+            return None
+
         publish_status(
             analysis_run_id,
             "Search",
@@ -60,7 +76,7 @@ def scraping_stage(self, analysis_run_id, search_results):
             analysis_run_id,
             "Scraping",
             "Scraping newsletters",
-            f"Starting to scrape {len(search_results) * 5} newsletters.",
+            f"Starting to scrape {len(search_results)} newsletters.",
             25
         )
         scraping_group = [

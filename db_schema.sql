@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS issue (
     title TEXT NOT NULL,
     subtitle TEXT,
     author VARCHAR(255),
-    canonical_url TEXT UNIQUE,
+    canonical_url TEXT,
     published_date TIMESTAMP WITH TIME ZONE,
     content TEXT[] NOT NULL,
     like_count INT DEFAULT 0,

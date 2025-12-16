@@ -30,6 +30,8 @@ class SubstackScraper:
             try:
                 scraped_issue_details = {}
                 content_data = self._scrape_issue_content(issue["canonical_url"])
+                if not content_data:
+                    continue
 
                 scraped_issue_details["title"] = issue["title"]
                 scraped_issue_details["subtitle"] = issue["subtitle"]
@@ -101,6 +103,11 @@ class SubstackScraper:
             widget.decompose()
 
         post_header = article.find("div", {"class": "post-header"})
+
+        if not post_header:
+            logger.error(f"No post header found in issue URL: {issue_url}")
+            return {}
+
         title = post_header.find("h1").get_text().strip()
         subtitle_elem = post_header.find("h3")
         subtitle = ""

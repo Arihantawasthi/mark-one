@@ -62,7 +62,7 @@ class BeehiivScraper:
                     break
                 if href not in seen_links:
                     seen_links.add(href)
-                    issue_links.append(f"{self.base_link}{href[1:]}")
+                    issue_links.append(f"{self.base_link}{href}")
 
         return issue_links
 
