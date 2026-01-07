@@ -79,7 +79,17 @@ class BeehiivScraper:
 
         if not main:
             logger.error(f"Failed to find main content for issue")
-            raise Exception("Issue not found")
+            return {
+                "title": "No Content to scrape in the issue",
+                "subtitle": "",
+                "date": None,
+                "author": "Unknown",
+                "content": [],
+                "like_count": 0,
+                "comment_count": 0,
+                "image_count": 0,
+                "links": []
+            }
 
         engagement_section = main.find("div", {"class": "fixed bottom-0 left-0 top-auto z-20 w-full rounded bg-wt-background shadow-xl transition-all duration-300 ease-in-out md:bottom-auto md:z-auto md:!w-fit md:border-none md:shadow-none opacity-100 md:top-20"})
         like_elem = engagement_section.find("button", {"class": "group"})
