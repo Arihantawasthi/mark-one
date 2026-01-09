@@ -7,6 +7,7 @@ from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage, search_stage
 from app.tasks.newsletter_tasks import analyze_manual_issue_task
 from app.services.pubsub import redis_client_async
+from app.core.helpers import hash_password
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["newsletter"])
@@ -16,6 +17,21 @@ router = APIRouter(tags=["newsletter"])
 async def health_check():
     logger.info("Health check endpoint called!")
     return { "status": "ok", "service": "scrapper" }
+
+@router.post("/create-client")
+async def create_client(body: dict):
+    username = body.get("username", "")
+    password = body.get("password", "")
+    max_usage = body.get("max_usage", 1000)
+    max_token_usage = body.get("max_token_usage", 100_000)
+
+    password = hash_password(password)
+
+    if not username or not password or not max_usage or not max_token_usage:
+        return { "requestStatus": 0, "message": "Missing required fields" }
+
+    client_id = queries.insert_client(username, password, max_usage, max_token_usage)
+    return { "requestStatus": 1, "message": "Client created successfully", "id": client_id }
 
 @router.post("/start-query-analysis")
 def start_query_analysis(body: dict[str, list]):

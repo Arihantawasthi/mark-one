@@ -1,12 +1,24 @@
 -- Need to connect client table with issue table so that specific clients can be associated with specific issues/newsletters
 CREATE TABLE IF NOT EXISTS client (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL
+    username VARCHAR(255) NOT NULL,
+    password TEXT NOT NULL,
+
+    is_active BOOLEAN DEFAULT TRUE,
+
+    max_usage INT NOT NULL,
+    current_usage INT DEFAULT 0,
+
+    max_token_usage INT NOT NULL,
+    current_token_usage INT DEFAULT 0,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS analysis_run (
     id SERIAL PRIMARY KEY, -- maybe later client_id will be added as FK
+    client_id INT REFERENCES client(id) ON DELETE CASCADE,
     display_title VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
     notion_doc_url TEXT,
@@ -19,6 +31,7 @@ CREATE TABLE IF NOT EXISTS analysis_run (
 
 CREATE TABLE IF NOT EXISTS issue (
     id SERIAL PRIMARY KEY,
+    client_id INT REFERENCES client(id) ON DELETE CASCADE,
     newsletter VARCHAR(255) NOT NULL,
     analysis_run_id INT REFERENCES analysis_run(id) ON DELETE CASCADE,
     title TEXT NOT NULL,

@@ -7,6 +7,24 @@ from app.llm.models import Analysis
 class DatabaseError(Exception):
     pass
 
+def insert_client(username, password, max_usage, max_token_usage):
+    sql = """
+        INSERT INTO client (username, password, max_usage, max_token_usage)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id;
+    """
+
+    db_conn = DatabaseConnector().connect()
+    try:
+        with db_conn:
+            with db_conn.cursor() as cursor:
+                cursor.execute(sql, (username, password, max_usage, max_token_usage))
+                return cursor.fetchone()["id"]
+
+    except PsycopgError as e:
+        raise DatabaseError(f"Error inserting client: {e}")
+
+
 def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
     sql = """
         INSERT INTO analysis_run (display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
