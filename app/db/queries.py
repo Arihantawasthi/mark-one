@@ -1,3 +1,4 @@
+from psycopg.rows import dict_row
 from app.db.connector import DatabaseConnector
 from psycopg import DatabaseError as PsycopgError
 import json
@@ -6,6 +7,22 @@ from app.llm.models import Analysis
 
 class DatabaseError(Exception):
     pass
+
+
+def get_client_by_username(username) -> dict | None:
+    sql = """SELECT * FROM client WHERE username = %s;"""
+
+    db_conn = DatabaseConnector().connect()
+    try:
+        with db_conn:
+            with db_conn.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(sql, (username,))
+                client = cursor.fetchone()
+                return client
+
+    except PsycopgError as e:
+        raise DatabaseError(f"Error fetching client: {e}")
+
 
 def insert_client(username, password, max_usage, max_token_usage):
     sql = """

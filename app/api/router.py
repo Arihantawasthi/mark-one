@@ -7,7 +7,7 @@ from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage, search_stage
 from app.tasks.newsletter_tasks import analyze_manual_issue_task
 from app.services.pubsub import redis_client_async
-from app.core.helpers import hash_password
+from app.core.helpers import hash_password, verify_password, generate_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["newsletter"])
@@ -32,6 +32,27 @@ async def create_client(body: dict):
 
     client_id = queries.insert_client(username, password, max_usage, max_token_usage)
     return { "requestStatus": 1, "message": "Client created successfully", "id": client_id }
+
+
+@router.post("/login")
+async def login(body: dict):
+    username = body.get("username", "")
+    password = body.get("password", "")
+
+    if not username or not password:
+        return { "requestStatus": 0, "message": "Missing required fields" }
+
+    client = queries.get_client_by_username(username)
+    if not client:
+        return { "requestStatus": 0, "message": "Invalid username or password" }
+
+    stored_password_hash = client["password"]
+    if not verify_password(password, stored_password_hash):
+        return { "requestStatus": 0, "message": "Invalid username or password" }
+
+    token = generate_access_token(client)
+    return { "requestStatus": 1, "message": "Login successful", "token": token }
+
 
 @router.post("/start-query-analysis")
 def start_query_analysis(body: dict[str, list]):

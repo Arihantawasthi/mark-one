@@ -27,3 +27,6 @@ LOG_FILE = os.getenv("LOG_FILE", "markone-celery.log")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 BASE_SEARCH_URL = os.getenv("BASE_SEARCH_URL")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+TOKEN_EXPIRATION_DAYS = int(os.getenv("TOKEN_EXPIRATION_DAYS", 30))
