@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS analysis_run (
 
 CREATE TABLE IF NOT EXISTS issue (
     id SERIAL PRIMARY KEY,
-    client_id INT REFERENCES client(id) ON DELETE CASCADE,
     newsletter VARCHAR(255) NOT NULL,
     analysis_run_id INT REFERENCES analysis_run(id) ON DELETE CASCADE,
     title TEXT NOT NULL,

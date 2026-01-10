@@ -1,13 +1,13 @@
 import json
 import logging
-from fastapi import APIRouter, WebSocket
+from fastapi import APIRouter, Depends, WebSocket
 from app.db import queries
 from app.services.beehiiv import BeehiivScraper
 from app.services.search import SearchService
 from app.tasks.pipeline import scraping_stage, search_stage
 from app.tasks.newsletter_tasks import analyze_manual_issue_task
 from app.services.pubsub import redis_client_async
-from app.core.helpers import hash_password, verify_password, generate_access_token
+from app.core.helpers import TokenException, hash_password, verify_password, generate_access_token, verify_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["newsletter"])
@@ -51,11 +51,36 @@ async def login(body: dict):
         return { "requestStatus": 0, "message": "Invalid username or password" }
 
     token = generate_access_token(client)
-    return { "requestStatus": 1, "message": "Login successful", "token": token }
+    data = {
+        "client_id": client["id"],
+        "username" : client["username"],
+        "token": token,
+        "usage": client["current_usage"],
+        "token_usage": client["current_token_usage"]
+    }
+    return { "requestStatus": 1, "message": "Login successful", "data": data }
+
+
+@router.post("/test-route")
+def test_route(token_data: dict = Depends(verify_token)):
+    if token_data.get("requestStatus") == 0:
+        return token_data
+    try:
+        return { "requestStatus": 1, "message": "Token is valid", "data": token_data }
+    except Exception as e:
+        logger.error(
+            f"Error in test route: {e}",
+            extra={"error": str(e)},
+            exc_info=True
+        )
+        return { "requestStatus": 0, "message": "Invalid token" }
 
 
 @router.post("/start-query-analysis")
-def start_query_analysis(body: dict[str, list]):
+def start_query_analysis(body: dict[str, list], token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
     search_queries = body.get("queries", [])
     if not search_queries:
         return { "requestStatus": 0, "message": "No search terms provided" }
@@ -71,20 +96,24 @@ def start_query_analysis(body: dict[str, list]):
         search_queries,
         0,
         0,
-        "initiated"
+        "initiated",
+        token_data.get("sub_id")
     )
-    search_stage.delay(analysis_run_id, search_queries)
 
+    search_stage.delay(analysis_run_id, search_queries)
     return { "requestStatus": 1, "message": "Analysis started", "analysis_id": analysis_run_id }
 
 
 @router.post("/start-links-analysis")
-def start_links_analysis(body: dict[str, list]):
+def start_links_analysis(body: dict[str, list], token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "user is not authorized!" }
+
     links = body.get("links", [])
     if not links:
-        return { "requestStatus": 0, "message": "No links provided" }
+        return { "requestStatus": 0, "message": "no links provided" }
 
-    display_title = f'Custom Links Analysis - "{links[0]}"'
+    display_title = f'custom links analysis - "{links[0]}"'
     if len(links) > 1:
         display_title += f' (+{len(links)-1})'
 
@@ -95,16 +124,20 @@ def start_links_analysis(body: dict[str, list]):
         [],
         0,
         0,
-        "initiated"
+        "initiated",
+        token_data.get("sub_id")
     )
-    search_results = [ { "link": link, "title": "Custom" } for link in links ]
-    scraping_stage.delay(analysis_run_id, search_results)
 
-    return { "requestStatus": 1, "message": "Analysis started", "analysis_id": analysis_run_id }
+    search_results = [ { "link": link, "title": "custom" } for link in links ]
+    scraping_stage.delay(analysis_run_id, search_results)
+    return { "requestStatus": 1, "message": "analysis started", "analysis_id": analysis_run_id }
 
 
 @router.post("/start-manual-issues-analysis")
-def start_manual_issues_analysis(body: dict):
+def start_manual_issues_analysis(body: dict, token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
     links = body.get("issue_urls", [])
     analysis_run_id = body.get("analysis_id", None)
     if not links or not analysis_run_id:
@@ -112,14 +145,12 @@ def start_manual_issues_analysis(body: dict):
 
     search_results = [ { "link": link, "title": "Custom" } for link in links ]
     analyze_manual_issue_task.delay(analysis_run_id, search_results, links)
-
     return { "requestStatus": 1, "message": "Manual issues analysis started", "analysis_id": analysis_run_id }
 
 
 @router.websocket("/ws/status/{analysis_run_id}")
 async def ws_analysis_status(websocket: WebSocket, analysis_run_id: int):
     await websocket.accept()
-
     pubsub = redis_client_async.pubsub()
     await pubsub.subscribe(f"analysis_status:{analysis_run_id}")
 
@@ -141,8 +172,12 @@ async def ws_analysis_status(websocket: WebSocket, analysis_run_id: int):
         await pubsub.unsubscribe(f"analysis_status:{analysis_run_id}")
         await websocket.close()
 
+
 @router.get("/analysis-status/{analysis_run_id}")
-def analysis_status(analysis_run_id: int):
+def analysis_status(analysis_run_id: int, token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
     status = queries.get_analysis_status(analysis_run_id)
     return {
         "requestStatus": 1,
@@ -154,7 +189,10 @@ def analysis_status(analysis_run_id: int):
     }
 
 @router.get("/analysis/{analysis_run_id}")
-def get_analysis(analysis_run_id: int):
+def get_analysis(analysis_run_id: int, token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
     issue_analysis = queries.get_issue_analyses_by_analysis_run_id(analysis_run_id)
     agg_analysis = queries.get_agg_issue_analysis_by_run_id(analysis_run_id)
     return {
@@ -164,7 +202,10 @@ def get_analysis(analysis_run_id: int):
     }
 
 @router.get("/analysis/process-status/{analysis_run_id}")
-def get_analysis_process_status(analysis_run_id: int):
+def get_analysis_process_status(analysis_run_id: int, token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
     process_status = queries.get_analysis_progress_status(analysis_run_id)
     return {
         "requestStatus": 1,
@@ -172,9 +213,13 @@ def get_analysis_process_status(analysis_run_id: int):
         "data": { "analysis_run_id": analysis_run_id, "process_status": process_status }
     }
 
+
 @router.get("/analyses/list")
-def list_analyses():
-    analyses = queries.get_all_analyses()
+def list_analyses(token_data: dict = Depends(verify_token)):
+    if not token_data:
+        return { "requestStatus": 0, "message": "User is not authorized!" }
+
+    analyses = queries.get_all_analyses(token_data.get("sub_id"))
     return {
         "requestStatus": 1,
         "message": "Successfully fetched analyses",

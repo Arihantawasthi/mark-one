@@ -42,10 +42,10 @@ def insert_client(username, password, max_usage, max_token_usage):
         raise DatabaseError(f"Error inserting client: {e}")
 
 
-def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status):
+def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status, client_id):
     sql = """
-        INSERT INTO analysis_run (display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO analysis_run (client_id, display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
     """
 
@@ -53,7 +53,7 @@ def insert_analysis_run(display_title, notion_doc_url, niche, search_terms, tota
     try:
         with db_conn:
             with db_conn.cursor() as cursor:
-                cursor.execute(sql, (display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status))
+                cursor.execute(sql, (client_id, display_title, notion_doc_url, niche, search_terms, total_newsletters, total_issues, status))
                 analysis_run_id = cursor.fetchone()["id"]
                 return analysis_run_id
 
@@ -365,14 +365,14 @@ def get_analysis_progress_status(analysis_run_id: int):
         db_conn.rollback()
         raise DatabaseError(f"Error fetching analysis progress status: {e}")
 
-def get_all_analyses():
-    sql = """SELECT * FROM analysis_run;"""
+def get_all_analyses(client_id: int | None):
+    sql = """SELECT * FROM analysis_run where client_id = %s;"""
     db_conn = DatabaseConnector().connect()
 
     try:
         with db_conn:
             with db_conn.cursor() as cursor:
-                cursor.execute(sql)
+                cursor.execute(sql, (client_id,))
                 analyses = cursor.fetchall()
                 return analyses
 
