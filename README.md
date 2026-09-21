@@ -1,5 +1,9 @@
 # Mark One — Backend
 
+> [!TIP]
+> This is the backend engine for the Mark One platform.
+> You can find the corresponding frontend user interface architecture in the [mark-one-client](https://github.com) repository.
+
 A FastAPI + Celery backend powering the Mark One newsletter analysis platform. It orchestrates scraping, issue analysis, aggregation, and real-time progress streaming.
 
 ---
